@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { system, user } = req.body;
+    const { systemPrompt, userPrompt, maxTokens, model } = req.body;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -14,17 +14,30 @@ export default async function handler(req, res) {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5-20250929",
-        max_tokens: 3000,
-        system,
-        messages: [{ role: "user", content: user }]
+        model: model || "claude-sonnet-4-5-20250929",
+        max_tokens: maxTokens || 3000,
+        system: systemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: userPrompt
+          }
+        ]
       })
     });
 
     const data = await response.json();
 
-    res.status(200).json(data);
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: data?.error?.message || data?.error || "Anthropic API error"
+      });
+    }
+
+    const text = data?.content?.[0]?.text || "";
+
+    return res.status(200).json({ text });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || "Server error" });
   }
 }
