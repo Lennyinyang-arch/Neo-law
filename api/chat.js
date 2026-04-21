@@ -4,7 +4,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { systemPrompt, userPrompt, maxTokens, model } = req.body;
+    const body = req.body || {};
+
+    const system = body.systemPrompt || "";
+    const user = body.userPrompt || "";
+
+    if (!user) {
+      return res.status(400).json({ error: "Missing user prompt" });
+    }
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -14,13 +21,12 @@ export default async function handler(req, res) {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: model || "claude-sonnet-4-5-20250929",
-        max_tokens: maxTokens || 3000,
-        system: systemPrompt,
+        model: "claude-3-5-sonnet-20240620",
+        max_tokens: 2000,
         messages: [
           {
             role: "user",
-            content: userPrompt
+            content: system ? `${system}\n\n${user}` : user
           }
         ]
       })
@@ -29,15 +35,15 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      return res.status(response.status).json({
-        error: data?.error?.message || data?.error || "Anthropic API error"
-      });
+      console.error("Anthropic error:", data);
+      return res.status(400).json({ error: data });
     }
 
     const text = data?.content?.[0]?.text || "";
 
     return res.status(200).json({ text });
+
   } catch (err) {
-    return res.status(500).json({ error: err.message || "Server error" });
+    return res.status(500).json({ error: err.message });
   }
 }
