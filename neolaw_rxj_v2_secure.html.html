@@ -1,0 +1,3002 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NeoLaw RxJ — Jurimetrographe (prototype)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --slate-50: #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1; --slate-400: #94a3b8; --slate-500: #64748b;
+    --slate-600: #475569; --slate-700: #334155; --slate-800: #1e293b;
+    --blue-600: #2563eb; --blue-700: #1d4ed8;
+    --emerald-600: #059669; --emerald-700: #047857;
+    --amber-500: #f59e0b; --rose-600: #e11d48;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f1f5f9;
+    color: #1e293b;
+    font-size: 12px;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  details > summary { list-style: none; cursor: pointer; user-select: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details[open] > summary .arrow { transform: rotate(90deg); }
+  .arrow { transition: transform 0.15s ease; display: inline-block; }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid #cbd5e1;
+    border-top-color: #2563eb;
+    border-radius: 9999px;
+    animation: spin 0.9s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+  }
+  .spinner-lg { width: 24px; height: 24px; border-width: 3px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  .step-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 11px; font-weight: 500;
+    border: 1px solid #cbd5e1;
+    background: white;
+    color: #64748b;
+    cursor: not-allowed;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .step-btn.active { background: #059669; border-color: #059669; color: white; cursor: pointer; }
+  .step-btn.active:hover { background: #047857; border-color: #047857; }
+  .step-btn.running { background: #f59e0b; border-color: #f59e0b; color: white; cursor: wait; }
+  .step-btn.done { background: #f0f9ff; border-color: #bae6fd; color: #0369a1; cursor: default; }
+  .step-dot {
+    width: 14px; height: 14px;
+    border-radius: 9999px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700;
+    background: #e2e8f0; color: #64748b;
+  }
+  .step-btn.active .step-dot { background: rgba(255,255,255,.25); color: white; }
+  .step-btn.running .step-dot { background: rgba(255,255,255,.3); color: white; }
+  .step-btn.done .step-dot { background: #bae6fd; color: #0369a1; }
+
+  .tab-btn {
+    padding: 8px 14px;
+    font-size: 12px; font-weight: 500;
+    color: #64748b;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tab-btn:hover { color: #334155; }
+  .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; font-weight: 600; }
+
+  .doc-item {
+    padding: 6px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex; align-items: flex-start; gap: 6px;
+    transition: background 0.1s;
+  }
+  .doc-item:hover { background: #f1f5f9; }
+  .doc-item.active { background: #dbeafe; }
+  .doc-item.non-tx { opacity: 0.7; }
+
+  .mini-btn {
+    padding: 2px 6px;
+    font-size: 10px;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    background: white;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .mini-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+  .mini-btn.validate { color: #059669; border-color: #a7f3d0; background: #f0fdf4; }
+  .mini-btn.validate:hover { background: #dcfce7; }
+  .mini-btn.danger { color: #e11d48; border-color: #fecdd3; background: #fff1f2; }
+  .mini-btn.danger:hover { background: #ffe4e6; }
+  .mini-btn.edit { color: #2563eb; border-color: #bfdbfe; background: #eff6ff; }
+  .mini-btn.edit:hover { background: #dbeafe; }
+
+  .validated-tag {
+    font-size: 9px; font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: #059669; color: white;
+    white-space: nowrap;
+  }
+
+  .party-col { background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; }
+  .party-a { border-left: 3px solid #2563eb; }
+  .party-b { border-left: 3px solid #e11d48; }
+
+  .enjeu-row, .article-row, .cne-row {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    padding: 7px 9px;
+    margin-bottom: 6px;
+    font-size: 11px;
+  }
+  .enjeu-row.validated, .article-row.validated, .cne-row.validated {
+    background: #f0fdf4; border-color: #bbf7d0;
+  }
+
+  .lord-filter {
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    font-size: 11px;
+    border-left: 3px solid transparent;
+    background: #f8fafc;
+    cursor: pointer;
+  }
+  .lord-filter.logique { border-left-color: #8b5cf6; background: #f5f3ff; }
+  .lord-filter.objectivite { border-left-color: #059669; background: #f0fdf4; }
+  .lord-filter.rhetorique { border-left-color: #ec4899; background: #fdf2f8; }
+  .lord-filter.deonto { border-left-color: #f43f5e; background: #fff1f2; }
+
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-panel {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+    max-height: 90vh;
+    display: flex; flex-direction: column;
+  }
+
+  .unit-text {
+    padding: 8px 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    margin-bottom: 5px;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .unit-code { color: #64748b; font-family: ui-monospace, monospace; font-weight: 600; font-size: 10px; }
+
+  .pulse { animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  .ai-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #818cf8, #c084fc);
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  .ai-glow {
+    box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.3), 0 0 15px rgba(129, 140, 248, 0.4);
+  }
+
+  .report-entry {
+    padding: 8px 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    margin-bottom: 5px;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .report-entry.dimmed { opacity: 0.4; background: #f1f5f9; }
+
+  .tag-cne { background: #2563eb; color: white; }
+  .tag-lord { background: #8b5cf6; color: white; }
+  .tag-obj { background: #059669; color: white; }
+  .tag-spec { background: #f59e0b; color: white; }
+
+  .tag {
+    font-size: 9px; font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .config-step {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+  .config-step.active { border-color: #2563eb; background: #eff6ff; }
+  .config-step.done { border-color: #059669; background: #f0fdf4; }
+
+  .toast {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    padding: 10px 16px;
+    background: #1e293b;
+    color: white;
+    border-radius: 6px;
+    font-size: 12px;
+    z-index: 100;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.2s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { background: #059669; }
+  .toast.error { background: #e11d48; }
+  .toast.ai { background: linear-gradient(90deg, #6366f1, #a855f7); }
+</style>
+</head>
+<body>
+
+<!-- BARRE SUPÉRIEURE -->
+<header class="h-12 bg-slate-900 text-white flex items-center px-4 justify-between border-b border-slate-800">
+  <div class="flex items-center gap-3">
+    <div class="w-7 h-7 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-xs">N</div>
+    <div>
+      <div class="text-sm font-semibold tracking-tight">NeoLaw RxJ · Jurimetrographe</div>
+      <div class="text-[10px] text-slate-400">Prototype · Dossier : <span id="caseTitle">Dupont c/ Martin — Garde d'enfant</span></div>
+    </div>
+  </div>
+  <div class="flex items-center gap-2">
+    <div id="aiStatus" class="flex items-center gap-2 text-[10px] text-slate-400">
+      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+      <span>IA connectée (Claude)</span>
+    </div>
+    <button id="resetAll" class="ml-4 px-3 py-1 text-[10px] rounded border border-slate-700 text-slate-300 hover:bg-slate-800">Réinitialiser</button>
+  </div>
+</header>
+
+<!-- LAYOUT 3 COLONNES -->
+<div class="flex" style="height: calc(100vh - 3rem);">
+
+  <!-- ====================== COLONNE 1 : GAUCHE ====================== -->
+  <aside class="w-[340px] bg-white border-r border-slate-200 flex flex-col shrink-0">
+    <div class="px-3 py-2 border-b border-slate-200 bg-slate-50">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-[11px] font-bold text-slate-800">Entrée & préparation</div>
+          <div class="text-[9px] text-slate-500">Colonne 1 · Archive documentaire</div>
+        </div>
+        <span class="text-[9px] px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-500">C1</span>
+      </div>
+    </div>
+
+    <div class="p-2 space-y-1.5 border-b border-slate-200">
+      <button id="btnImport" class="w-full flex items-center justify-center gap-1.5 rounded border border-slate-300 bg-white px-2 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50">
+        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+        Importer des documents
+      </button>
+    </div>
+
+    <div class="flex-1 flex flex-col min-h-0 p-2">
+      <div class="flex items-center justify-between mb-1.5">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sommaire global</div>
+        <span class="text-[9px] text-slate-400" id="docCount">0 doc.</span>
+      </div>
+      <div id="archiveList" class="flex-1 overflow-y-auto space-y-0.5 pr-1"></div>
+    </div>
+
+    <div class="p-2 border-t border-slate-200 bg-slate-50">
+      <div class="text-[9px] text-slate-600 leading-relaxed">
+        Les documents sont classés chronologiquement. Les documents non textualisables affichent <span class="font-semibold">(non-tx)</span>. Cliquez sur un document pour l'ouvrir.
+      </div>
+    </div>
+  </aside>
+
+  <!-- ====================== COLONNE 2 : CENTRE ====================== -->
+  <main class="flex-1 flex flex-col min-w-0 bg-slate-50">
+    <!-- Tabs -->
+    <div class="bg-white border-b border-slate-200 px-3 flex items-center gap-0">
+      <button class="tab-btn active" data-tab="dossier">Dossier normatif & TCJ</button>
+      <button class="tab-btn" data-tab="filtres">Filtres Rx-J</button>
+      <button class="tab-btn" data-tab="lecture">Lecture & annotations</button>
+    </div>
+
+    <!-- TAB DOSSIER -->
+    <div id="tab-dossier" class="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <!-- Ligne d'étapes -->
+      <div class="bg-white border-b border-slate-200 px-3 py-2">
+        <div class="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Étapes d'analyse</div>
+        <div id="stepsBar" class="flex gap-1.5 overflow-x-auto pb-1"></div>
+      </div>
+
+      <!-- Contenu étapes -->
+      <div class="flex-1 overflow-y-auto p-3 space-y-3">
+        <!-- Étape 1 : Parties -->
+        <section id="section-parties" class="bg-white border border-slate-200 rounded-lg p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <div class="text-[11px] font-bold text-slate-800">Étape 1 — Identification des parties</div>
+              <div class="text-[10px] text-slate-500">L'IA extrait les informations des parties A et B depuis les pièces du dossier.</div>
+            </div>
+            <span id="parties-status" class="text-[9px] px-2 py-0.5 rounded bg-slate-100 text-slate-500">en attente</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="party-col party-a">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Partie A</div>
+              </div>
+              <div id="partyA-content" class="text-[11px] text-slate-600 italic">— Non identifié —</div>
+            </div>
+            <div class="party-col party-b">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="text-[10px] font-bold text-rose-700 uppercase tracking-wider">Partie B</div>
+              </div>
+              <div id="partyB-content" class="text-[11px] text-slate-600 italic">— Non identifié —</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Étape 2 : Enjeux -->
+        <section id="section-enjeux" class="bg-white border border-slate-200 rounded-lg p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <div class="text-[11px] font-bold text-slate-800">Étape 2 — Identification des enjeux</div>
+              <div class="text-[10px] text-slate-500">L'IA formule les enjeux des parties en forme opposée.</div>
+            </div>
+            <span id="enjeux-status" class="text-[9px] px-2 py-0.5 rounded bg-slate-100 text-slate-500">en attente</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="party-col party-a">
+              <div class="text-[10px] font-bold text-blue-700 uppercase tracking-wider mb-1.5">Enjeux A</div>
+              <div id="enjeuxA-list" class="space-y-1"></div>
+            </div>
+            <div class="party-col party-b">
+              <div class="text-[10px] font-bold text-rose-700 uppercase tracking-wider mb-1.5">Enjeux B</div>
+              <div id="enjeuxB-list" class="space-y-1"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Étape 3 : Articles -->
+        <section id="section-articles" class="bg-white border border-slate-200 rounded-lg p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <div class="text-[11px] font-bold text-slate-800">Étape 3 — Articles de loi</div>
+              <div class="text-[10px] text-slate-500">Identification des bases légales applicables.</div>
+            </div>
+            <span id="articles-status" class="text-[9px] px-2 py-0.5 rounded bg-slate-100 text-slate-500">en attente</span>
+          </div>
+          <div id="articles-list" class="space-y-1.5"></div>
+        </section>
+
+        <!-- Étape 4 : CNE -->
+        <section id="section-cne" class="bg-white border border-slate-200 rounded-lg p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <div class="text-[11px] font-bold text-slate-800">Étape 4 — Décomposition en CNE</div>
+              <div class="text-[10px] text-slate-500">Conditions Normatives Essentielles extraites des articles.</div>
+            </div>
+            <span id="cne-status" class="text-[9px] px-2 py-0.5 rounded bg-slate-100 text-slate-500">en attente</span>
+          </div>
+          <div id="cne-list" class="space-y-1.5"></div>
+        </section>
+
+        <!-- Étape 5 : Syllogismes -->
+        <section id="section-syllo" class="bg-white border border-slate-200 rounded-lg p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <div class="text-[11px] font-bold text-slate-800">Étape 5 — Syllogismes opposés</div>
+              <div class="text-[10px] text-slate-500">Formulations favorables à chaque partie.</div>
+            </div>
+            <span id="syllo-status" class="text-[9px] px-2 py-0.5 rounded bg-slate-100 text-slate-500">en attente</span>
+          </div>
+          <div id="syllo-list" class="space-y-1.5"></div>
+        </section>
+
+        <!-- Étape 6 : Rapport CNE (bouton ouverture) -->
+        <section id="section-rapport" class="bg-white border border-slate-200 rounded-lg p-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-bold text-slate-800">Étape 6 — Rapport CNE</div>
+              <div class="text-[10px] text-slate-500">Unités textuelles associées aux CNE par l'IA.</div>
+            </div>
+            <button id="openRapportBtn" class="mini-btn" disabled>Ouvrir le rapport</button>
+          </div>
+        </section>
+
+        <!-- Étape 7 : TCJ -->
+        <section id="section-tcj" class="bg-white border border-slate-200 rounded-lg p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <div class="text-[11px] font-bold text-slate-800">Étape 7 — Tableau des Comptes Juridiques (TCJ)</div>
+              <div class="text-[10px] text-slate-500">Synthèse finale : unités textuelles validées par partie.</div>
+            </div>
+            <span id="tcj-status" class="text-[9px] px-2 py-0.5 rounded bg-slate-100 text-slate-500">en attente</span>
+          </div>
+          <div id="tcj-content" class="text-[11px] text-slate-500 italic text-center py-6">Le TCJ sera rempli à la fin de l'analyse.</div>
+        </section>
+      </div>
+    </div>
+
+    <!-- TAB FILTRES -->
+    <div id="tab-filtres" class="hidden flex-1 overflow-y-auto p-3 space-y-3">
+      <!-- Boutons d'analyse -->
+      <div class="bg-white border border-slate-200 rounded-lg p-3 flex items-center justify-between">
+        <div>
+          <div class="text-[11px] font-bold text-slate-800">Lancer les analyses sur le dossier</div>
+          <div class="text-[10px] text-slate-500">Chaque analyse produit un rapport accessible dans la colonne 3.</div>
+        </div>
+        <div class="flex gap-1.5">
+          <button class="analyse-btn mini-btn" data-type="OBJ">Inventaire Preuves</button>
+          <button class="analyse-btn mini-btn" data-type="LORD">Analyse LORD</button>
+          <button class="analyse-btn mini-btn" data-type="SPEC">Filtres spécifiques</button>
+        </div>
+      </div>
+
+      <!-- CNE filtres -->
+      <div class="bg-white border border-slate-200 rounded-lg p-3">
+        <div class="text-[11px] font-bold text-slate-800 mb-1">1. Filtres CNE <span class="text-[9px] text-slate-400 font-normal">(lecture seule)</span></div>
+        <div id="cne-filters-readonly" class="text-[10px] text-slate-500 italic">Les CNE apparaîtront ici après validation de l'étape 4.</div>
+      </div>
+
+      <!-- Obj/Subj -->
+      <div class="bg-white border border-slate-200 rounded-lg p-3">
+        <div class="text-[11px] font-bold text-slate-800 mb-1.5">2. Filtres Obj/Subj (moyens de preuve)</div>
+        <details class="mb-1.5">
+          <summary class="text-[10px] font-semibold text-slate-600 hover:text-slate-800"><span class="arrow">▸</span> Définition pour l'humain</summary>
+          <textarea class="mt-1 w-full text-[10px] p-2 border border-slate-200 rounded" rows="3">Objectif : éléments matériels vérifiables (titres, attestations, e-mails datés, factures, certificats médicaux, jugements). Subjectif : déclarations, opinions, impressions, jugements de valeur non étayés.</textarea>
+        </details>
+        <details>
+          <summary class="text-[10px] font-semibold text-slate-600 hover:text-slate-800"><span class="arrow">▸</span> Prompt pour l'IA</summary>
+          <textarea class="mt-1 w-full text-[10px] p-2 border border-slate-200 rounded mono" rows="3">Identifie chaque unité textuelle soit comme OBJ (fait matériel vérifiable, pièce datée, document officiel) soit comme SUBJ (déclaration, opinion, ressenti). Justifie brièvement.</textarea>
+        </details>
+      </div>
+
+      <!-- LORD -->
+      <div class="bg-white border border-slate-200 rounded-lg p-3">
+        <div class="text-[11px] font-bold text-slate-800 mb-1.5">3. Filtres LORD (24 filtres)</div>
+        <div class="grid grid-cols-2 gap-1.5">
+          <div>
+            <div class="text-[9px] font-bold uppercase text-purple-700 mb-1">Logique (7)</div>
+            <div class="lord-filter logique" data-code="L1" title="Rupture de l'induction légitime : projection d'une propriété observée sur un échantillon restreint vers l'universel.">L1 · Généralisation abusive</div>
+            <div class="lord-filter logique" data-code="L2" title="Confusion entre corrélation temporelle et causalité mécanique.">L2 · Fausse causalité (Post Hoc)</div>
+            <div class="lord-filter logique" data-code="L3" title="Réduction d'un espace des possibles à une dichotomie artificielle exclusive.">L3 · Faux dilemme</div>
+            <div class="lord-filter logique" data-code="L4" title="Substitution de la critique de l'argument par la critique de l'énonciateur.">L4 · Attaque ad hominem</div>
+            <div class="lord-filter logique" data-code="L5" title="Pétition de principe : la conclusion est déjà contenue dans la prémisse.">L5 · Raisonnement circulaire</div>
+            <div class="lord-filter logique" data-code="L6" title="Déformation de la thèse adverse pour la réfuter plus aisément.">L6 · Homme de paille</div>
+            <div class="lord-filter logique" data-code="L7" title="Projection rétrospective de connaissances ou intentions futures sur un acteur passé.">L7 · Téléologie rétrospective</div>
+          </div>
+          <div>
+            <div class="text-[9px] font-bold uppercase text-emerald-700 mb-1">Objectivité (10)</div>
+            <div class="lord-filter objectivite" data-code="O1" title="Absence d'ancrage spatio-temporel concret. L'énoncé flotte sans coordonnées de réalité.">O1 · Factualité vs assertion gratuite</div>
+            <div class="lord-filter objectivite" data-code="O2" title="Conclusion ou qualification sans justification explicite.">O2 · Argumentation fondée vs non-fondée</div>
+            <div class="lord-filter objectivite" data-code="O3" title="Substitution de données matérielles par des impressions subjectives du rédacteur.">O3 · Preuve objective vs ressenti</div>
+            <div class="lord-filter objectivite" data-code="O4" title="Confusion entre allégation contestée et fait établi.">O4 · Prouvé vs supposé</div>
+            <div class="lord-filter objectivite" data-code="O5" title="Intrusion dans la psyché du sujet. Attribution d'états mentaux non observables.">O5 · Description vs interprétation psy.</div>
+            <div class="lord-filter objectivite" data-code="O6" title="Usage de modificateurs évaluatifs subjectifs sans critère objectif de mesure.">O6 · Adjectifs qualificatifs</div>
+            <div class="lord-filter objectivite" data-code="O7" title="Test de la caméra : énoncé non capturable par un dispositif d'enregistrement.">O7 · Vérifiabilité</div>
+            <div class="lord-filter objectivite" data-code="O8" title="Mélange indistinct de la parole rapportée et de l'interprétation du rédacteur.">O8 · Ancrage source</div>
+            <div class="lord-filter objectivite" data-code="O9" title="Effacement de l'agent ou du patient par voix passive ou tournures impersonnelles.">O9 · Passivation agentive</div>
+            <div class="lord-filter objectivite" data-code="O10" title="Confusion entre allégation et fait acquis. Violation de la présomption d'innocence épistémique.">O10 · Fait allégué vs fait établi</div>
+          </div>
+          <div>
+            <div class="text-[9px] font-bold uppercase text-pink-700 mb-1">Rhétorique (3)</div>
+            <div class="lord-filter rhetorique" data-code="R1" title="Substitution de l'argumentation logique par l'activation émotionnelle.">R1 · Logos vs pathos</div>
+            <div class="lord-filter rhetorique" data-code="R2" title="Saturation informationnelle par accumulation de détails mineurs.">R2 · Noyage de poisson</div>
+            <div class="lord-filter rhetorique" data-code="R3" title="Imposition rhétorique de l'évidence par adverbes de force.">R3 · Langage de suggestion</div>
+          </div>
+          <div>
+            <div class="text-[9px] font-bold uppercase text-rose-700 mb-1">Déontologique (4)</div>
+            <div class="lord-filter deonto" data-code="D1" title="Asymétrie du regard porté sur les parties. Prise de position par dissymétrie lexicale.">D1 · Neutralité vs posture partisane</div>
+            <div class="lord-filter deonto" data-code="D2" title="Non-respect du contradictoire dans la rédaction.">D2 · Équilibre des versions</div>
+            <div class="lord-filter deonto" data-code="D3" title="Débordement du mandat technique vers l'ingérence morale.">D3 · Respect du rôle</div>
+            <div class="lord-filter deonto" data-code="D4" title="Essentialisation du sujet par jugement ontologique plutôt que praxéologique.">D4 · Ciblage du jugement</div>
+        </div>
+      </div>
+
+      <!-- Spécifiques -->
+      <div class="bg-white border border-slate-200 rounded-lg p-3">
+        <div class="flex items-center justify-between mb-1.5">
+          <div class="text-[11px] font-bold text-slate-800">4. Filtres spécifiques</div>
+          <button class="mini-btn edit">+ Ajouter</button>
+        </div>
+        <div class="text-[10px] text-slate-500 italic">Aucun filtre spécifique défini.</div>
+      </div>
+    </div>
+
+    <!-- TAB LECTURE -->
+    <div id="tab-lecture" class="hidden flex-1 overflow-y-auto p-3">
+      <div class="bg-white border border-slate-200 rounded-lg p-3">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <div class="text-[11px] font-bold text-slate-800">Lecture annotée du document</div>
+            <div class="text-[10px] text-slate-500">Sélectionnez un document dans la colonne de gauche pour l'ouvrir ici.</div>
+          </div>
+          <div class="flex gap-1">
+            <button class="w-6 h-6 rounded bg-yellow-200 border border-yellow-300" title="Jaune"></button>
+            <button class="w-6 h-6 rounded bg-green-200 border border-green-300" title="Vert"></button>
+            <button class="w-6 h-6 rounded bg-blue-200 border border-blue-300" title="Bleu"></button>
+            <button class="w-6 h-6 rounded bg-pink-200 border border-pink-300" title="Rose"></button>
+          </div>
+        </div>
+        <div id="lectureContent" class="text-[12px] leading-relaxed text-slate-700 space-y-2 min-h-[300px] border border-slate-200 rounded p-3 bg-slate-50">
+          <div class="text-slate-400 italic text-center py-10">Aucun document sélectionné.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ====================== COLONNE 3 : DROITE ====================== -->
+  <aside class="w-[360px] bg-white border-l border-slate-200 flex flex-col shrink-0">
+    <div class="px-3 py-2 border-b border-slate-200 bg-slate-50">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-[11px] font-bold text-slate-800">Analyse & rapports</div>
+          <div class="text-[9px] text-slate-500">Colonne 3 · Rapports, registres</div>
+        </div>
+        <span class="text-[9px] px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-500">C3</span>
+      </div>
+    </div>
+
+    <!-- Configuration -->
+    <div class="p-2 border-b border-slate-200">
+      <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Configuration du rapport</div>
+      <div class="space-y-1.5">
+        <select id="cfgScope" class="w-full text-[10px] p-1.5 border border-slate-300 rounded bg-white">
+          <option>Tout le dossier</option>
+          <option>Pièces de la partie A</option>
+          <option>Pièces de la partie B</option>
+          <option>Sélection personnalisée</option>
+        </select>
+        <select id="cfgFilter" class="w-full text-[10px] p-1.5 border border-slate-300 rounded bg-white">
+          <option value="CNE">Filtre CNE</option>
+          <option value="OBJ">Filtre Obj/Subj</option>
+          <option value="LORD">Filtre LORD</option>
+          <option value="SPEC">Filtre Spécifiques</option>
+        </select>
+        <input id="cfgName" type="text" placeholder="Nom du rapport" class="w-full text-[10px] p-1.5 border border-slate-300 rounded" />
+        <textarea id="cfgNotes" placeholder="Exigences de rédaction personnalisées…" class="w-full text-[10px] p-1.5 border border-slate-300 rounded" rows="2"></textarea>
+        <button id="btnLaunchReport" class="w-full text-[10px] py-1.5 rounded bg-blue-600 text-white font-medium hover:bg-blue-700">Lancer l'analyse</button>
+        <div id="reportStatus" class="text-[10px] text-center text-slate-500"></div>
+      </div>
+    </div>
+
+    <!-- Registres -->
+    <div class="p-2 border-b border-slate-200">
+      <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Registres</div>
+      <div class="grid grid-cols-5 gap-1">
+        <button class="registre-btn mini-btn text-[9px]" data-reg="ALL">Rx-Dossier</button>
+        <button class="registre-btn mini-btn text-[9px]" data-reg="CNE">CNE</button>
+        <button class="registre-btn mini-btn text-[9px]" data-reg="LORD">LORD</button>
+        <button class="registre-btn mini-btn text-[9px]" data-reg="OBJ">Obj/Subj</button>
+        <button class="registre-btn mini-btn text-[9px]" data-reg="SPEC">Spéc.</button>
+      </div>
+    </div>
+
+    <!-- Liste rapports -->
+    <div class="flex-1 flex flex-col min-h-0 p-2">
+      <div class="flex items-center justify-between mb-1.5">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Rapports</div>
+        <span class="text-[9px] text-slate-400" id="reportCount">0</span>
+      </div>
+      <div id="reportsList" class="flex-1 overflow-y-auto space-y-1"></div>
+    </div>
+  </aside>
+</div>
+
+<!-- ============ MODAL IMPORT ============ -->
+<div id="modalImport" class="modal-backdrop hidden">
+  <div class="modal-panel w-full max-w-lg">
+    <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5 rounded-t-[10px]">
+      <div class="text-[12px] font-bold text-slate-800">Importation de documents</div>
+      <button class="close-modal text-slate-400 hover:text-slate-700" data-modal="modalImport">✕</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <div>
+        <div class="text-[11px] font-bold text-slate-700 mb-1.5">Choisir un dossier d'exemple :</div>
+        <div class="space-y-1">
+          <label class="flex items-start gap-2 p-2 border border-slate-200 rounded cursor-pointer hover:bg-slate-50">
+            <input type="radio" name="caseChoice" value="garde_enfant" checked class="mt-0.5" />
+            <div>
+              <div class="text-[11px] font-semibold text-slate-800">Dupont c/ Martin — Garde d'enfant</div>
+              <div class="text-[9px] text-slate-500">1 enjeu principal · 6 pièces · cas civil familial</div>
+            </div>
+          </label>
+          <label class="flex items-start gap-2 p-2 border border-slate-200 rounded cursor-pointer hover:bg-slate-50">
+            <input type="radio" name="caseChoice" value="accident_circulation" class="mt-0.5" />
+            <div>
+              <div class="text-[11px] font-semibold text-slate-800">Martin c/ Leroy — Accident de la circulation</div>
+              <div class="text-[9px] text-slate-500">2 enjeux distincts (corporel + matériel) · 6 pièces · LCR/CO</div>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="rounded border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center text-[11px] text-slate-500">
+        <div class="mb-1 font-semibold text-slate-600">Documents à importer :</div>
+        <div id="importFilesList" class="space-y-1 text-[10px] font-medium text-slate-700 text-left max-h-40 overflow-y-auto"></div>
+      </div>
+      <div class="text-[10px] text-slate-500 italic">L'IA extraira réellement les métadonnées, enjeux, CNE et syllogismes via l'API Claude.</div>
+    </div>
+    <div class="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2.5 rounded-b-[10px]">
+      <button class="close-modal mini-btn" data-modal="modalImport">Annuler</button>
+      <button id="btnConfirmImport" class="mini-btn validate">Importer les documents</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL TRAITEMENT ============ -->
+<div id="modalProcessing" class="modal-backdrop hidden">
+  <div class="modal-panel w-full max-w-md">
+    <div class="border-b border-slate-200 bg-slate-50 px-4 py-2.5 rounded-t-[10px]">
+      <div class="text-[12px] font-bold text-slate-800">Importation & traitement IA</div>
+    </div>
+    <div class="p-4 space-y-3">
+      <div class="flex items-center gap-3">
+        <div class="spinner spinner-lg"></div>
+        <div class="text-[11px] text-slate-600" id="processingText">Préparation…</div>
+      </div>
+      <div id="processingSteps" class="space-y-1 text-[10px]"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL FICHE DOCUMENT ============ -->
+<div id="modalDocForm" class="modal-backdrop hidden">
+  <div class="modal-panel w-full max-w-2xl">
+    <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5 rounded-t-[10px]">
+      <div>
+        <div class="text-[12px] font-bold text-slate-800">Fiche documentaire</div>
+        <div class="text-[10px] text-slate-500">Métadonnées extraites par l'IA · À valider</div>
+      </div>
+      <button class="close-modal text-slate-400 hover:text-slate-700" data-modal="modalDocForm">✕</button>
+    </div>
+    <div class="grid grid-cols-3 divide-x divide-slate-200">
+      <div class="p-3 bg-slate-50">
+        <div class="text-[9px] font-bold text-slate-400 uppercase mb-2">Document</div>
+        <div id="docFormInfo" class="text-[10px] text-slate-700 space-y-1"></div>
+      </div>
+      <div class="p-3">
+        <div class="text-[9px] font-bold text-slate-400 uppercase mb-2">Commentaires</div>
+        <textarea id="docFormComment" class="w-full h-36 p-2 text-[10px] border border-slate-200 rounded bg-amber-50 resize-none"></textarea>
+      </div>
+      <div class="p-3">
+        <div class="text-[9px] font-bold text-slate-400 uppercase mb-2">Métadonnées éditables <span class="ai-badge">IA</span></div>
+        <div class="space-y-1.5">
+          <input id="docFormTitle" type="text" placeholder="Titre" class="w-full p-1.5 text-[10px] border border-slate-300 rounded" />
+          <input id="docFormDate" type="text" placeholder="YYYY-MM-DD" class="w-full p-1.5 text-[10px] border border-slate-300 rounded" />
+          <select id="docFormType" class="w-full p-1.5 text-[10px] border border-slate-300 rounded bg-white">
+            <option value="email">Email</option><option value="lettre">Lettre</option>
+            <option value="plainte">Plainte</option><option value="requete">Requête</option>
+            <option value="ordonnance">Ordonnance</option><option value="attestation">Attestation</option>
+            <option value="image">Image</option><option value="autre">Autre</option>
+          </select>
+          <input id="docFormAuthor" type="text" placeholder="Auteur" class="w-full p-1.5 text-[10px] border border-slate-300 rounded" />
+        </div>
+      </div>
+    </div>
+    <div class="flex justify-between items-center border-t border-slate-200 bg-slate-50 px-4 py-2.5 rounded-b-[10px]">
+      <div class="text-[10px] text-slate-500">Validation humaine requise</div>
+      <div class="flex gap-2">
+        <button class="close-modal mini-btn" data-modal="modalDocForm">Annuler</button>
+        <button id="btnValidateDoc" class="mini-btn validate">Valider</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL RAPPORT CNE ============ -->
+<div id="modalRapportCNE" class="modal-backdrop hidden">
+  <div class="modal-panel w-full max-w-3xl" style="height: 80vh;">
+    <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5 rounded-t-[10px]">
+      <div>
+        <div class="text-[12px] font-bold text-slate-800">Rapport CNE</div>
+        <div class="text-[10px] text-slate-500">Unités textuelles associées aux CNE par l'IA · À valider</div>
+      </div>
+      <div class="flex gap-2">
+        <button id="btnValidateAllRapport" class="mini-btn validate">Tout valider</button>
+        <button class="close-modal mini-btn" data-modal="modalRapportCNE">Fermer</button>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4" id="rapportCNEContent"></div>
+  </div>
+</div>
+
+<!-- ============ MODAL RAPPORT GÉNÉRIQUE ============ -->
+<div id="modalReport" class="modal-backdrop hidden">
+  <div class="modal-panel w-full max-w-4xl" style="height: 85vh;">
+    <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5 rounded-t-[10px]">
+      <div>
+        <div id="reportTitle" class="text-[13px] font-bold text-slate-800">Rapport</div>
+        <div id="reportMeta" class="text-[10px] text-slate-500"></div>
+        <div id="reportParams" class="text-[10px] text-slate-600 mt-1"></div>
+      </div>
+      <div class="flex gap-2">
+        <button id="btnSaveReport" class="mini-btn edit">Enregistrer</button>
+        <button id="btnPrintReport" class="mini-btn">Imprimer</button>
+        <button class="close-modal mini-btn" data-modal="modalReport">Fermer</button>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4" id="reportBody"></div>
+  </div>
+</div>
+
+<!-- ============ MODAL REGISTRE ============ -->
+<div id="modalRegistre" class="modal-backdrop hidden">
+  <div class="modal-panel w-full max-w-3xl" style="height: 80vh;">
+    <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5 rounded-t-[10px]">
+      <div>
+        <div id="registreTitle" class="text-[12px] font-bold text-slate-800">Registre</div>
+        <div class="text-[10px] text-slate-500">Unités textuelles validées</div>
+      </div>
+      <button class="close-modal mini-btn" data-modal="modalRegistre">Fermer</button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4" id="registreBody"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<script>
+/* ============================================================
+   NEOLAW RxJ — PROTOTYPE
+   Auteur : Dan
+   IA branchée : Claude (Anthropic API)
+   ============================================================ */
+
+
+/* ----------- CONFIG API ----------- */
+const API_URL = "/api/chat";
+const MODEL = "claude-sonnet-4-5-20250929";
+
+async function callClaude(systemPrompt, userPrompt, maxTokens = 1500) {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      systemPrompt,
+      userPrompt,
+      maxTokens,
+      model: MODEL
+    })
+  });
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (e) {
+    throw new Error(`Réponse invalide du serveur (${res.status})`);
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.error || `Erreur serveur (${res.status})`);
+  }
+
+  if (!data?.text) {
+    throw new Error("Réponse IA vide ou mal formée.");
+  }
+
+  return data.text;
+}
+
+
+/* ============================================================
+   BIBLIOTHÈQUE DE PROMPTS — VERSION 1 (méthodologie Dan)
+   ------------------------------------------------------------
+   Chaque prompt suit la structure Dan :
+   - ROLE : à qui tu t'adresses
+   - CONTEXTE : ce que tu sais
+   - INPUT : ce qu'on te donne
+   - INSTRUCTION : ce que tu dois faire (stricte)
+   - OUTPUT : format JSON exact attendu
+   - RÈGLES D'ÉCHEC : comment signaler un échec
+   ------------------------------------------------------------
+   Pour éditer un prompt : modifier la version ici.
+   Pour créer une v2 : dupliquer la fonction avec suffixe _v2.
+   ============================================================ */
+const PROMPTS = {
+
+  /* ---------- ÉTAPE 1 : IDENTIFICATION DES PARTIES ---------- */
+  identifierParties_v1: {
+    system: `Tu es un analyste juridique senior. Tu travailles pour l'avocat d'une des deux parties.
+Ta mission : identifier précisément les deux parties en présence dans un dossier judiciaire.
+Tu respectes les principes suivants :
+- Factualité stricte (ce qui est écrit, pas ce qui est interprété)
+- Pas d'hallucination (si une info manque, tu écris "non précisé")
+- JSON valide uniquement, sans markdown ni texte autour.`,
+    user: (corpus) => `Analyse les pièces suivantes et identifie les deux parties :
+- Partie A = demandeur/requérant/plaignant (celui qui initie l'action)
+- Partie B = défendeur/intimé (celui qui répond)
+
+Pour chaque partie, extrait :
+- Civilité, nom, prénom
+- Date de naissance si présente
+- Domicile si présent
+- Avocat/représentant si présent
+- Rôle procédural précis
+
+Si c'est un cas non-judiciaire (ex: accident de la circulation hors procédure), identifie :
+- Partie A = partie lésée principale
+- Partie B = partie responsable potentielle
+
+Réponds EXCLUSIVEMENT avec ce JSON :
+{
+  "partieA": "texte complet (2-3 lignes) décrivant la partie A",
+  "partieB": "texte complet (2-3 lignes) décrivant la partie B"
+}
+
+PIÈCES DU DOSSIER :
+${corpus}`
+  },
+
+  /* ---------- ÉTAPE 2 : IDENTIFICATION DES ENJEUX ---------- */
+  identifierEnjeux_v1: {
+    system: `Tu es un analyste juridique senior.
+Un ENJEU = une question juridique distincte en débat entre les parties (ex: "responsabilité civile corporelle" ou "garde de l'enjeu").
+Un dossier peut contenir PLUSIEURS enjeux indépendants.
+Principe fondamental de la méthode Rx-J : chaque enjeu est formulé en MIROIR OPPOSÉ (ce que A veut / ce que B veut, symétriquement).
+JSON valide uniquement.`,
+    user: (parties, corpus) => `À partir de ces pièces, identifie TOUS les enjeux juridiques distincts du dossier.
+
+Partie A : ${parties.A}
+Partie B : ${parties.B}
+
+Pour CHAQUE enjeu :
+1. Donne-lui un titre court (ex: "Responsabilité civile pour dommages corporels")
+2. Formule la position de A (ce que A revendique)
+3. Formule la position de B (formulation EXACTEMENT OPPOSÉE à A)
+
+IMPORTANT : 
+- Les positions A et B doivent être des miroirs précis (si A dit "X est vrai", B dit "X est faux ou partiellement vrai").
+- S'il y a plusieurs enjeux distincts (ex: dommage corporel + dommage matériel), crée une entrée par enjeu.
+
+Réponds EXCLUSIVEMENT avec ce JSON :
+{
+  "enjeux": [
+    {
+      "num": 1,
+      "titre": "titre court de l'enjeu",
+      "positionA": "ce que A revendique",
+      "positionB": "ce que B soutient (opposé à A)"
+    },
+    { "num": 2, "titre": "...", "positionA": "...", "positionB": "..." }
+  ]
+}
+
+PIÈCES DU DOSSIER :
+${corpus}`
+  },
+
+  /* ---------- ÉTAPE 3 : PROPOSER DES RÉFÉRENCES D'ARTICLES ---------- */
+  // Dan veut que les textes d'articles soient collés manuellement (anti-hallucination).
+  // L'IA ne fait QUE proposer des RÉFÉRENCES (numéros), pas inventer les textes.
+  proposerReferencesArticles_v1: {
+    system: `Tu es un juriste suisse senior.
+Ta mission : proposer les RÉFÉRENCES (numéros d'articles et jurisprudence) applicables à chaque enjeu d'un dossier.
+RÈGLE ABSOLUE : tu proposes UNIQUEMENT des références (numéros), JAMAIS le texte complet des articles. L'utilisateur collera lui-même le texte officiel pour éviter toute hallucination juridique.
+Si tu n'es pas certain qu'une référence existe, ne la propose pas.
+JSON valide uniquement.`,
+    user: (enjeux, corpus) => `Propose les références d'articles et jurisprudence applicables à chaque enjeu.
+
+ENJEUX :
+${enjeux.map(e => `Enjeu ${e.num} : ${e.titre}\n  A : ${e.positionA}\n  B : ${e.positionB}`).join("\n\n")}
+
+CONTEXTE (pièces) :
+${corpus}
+
+Pour chaque enjeu, propose 2 à 5 références pertinentes. Format préféré :
+- "Art. 58 al. 1 LCR"
+- "Art. 41 CO"
+- "ATF 142 III 617 consid. 3.2.3"
+
+Réponds EXCLUSIVEMENT avec ce JSON :
+{
+  "propositions": [
+    {
+      "enjeuNum": 1,
+      "references": [
+        { "ref": "Art. 58 al. 1 LCR", "justification": "pourquoi cet article s'applique à cet enjeu" },
+        { "ref": "Art. 41 CO", "justification": "..." }
+      ]
+    }
+  ]
+}`
+  },
+
+  /* ---------- ÉTAPE 4 : DÉCOMPOSITION D'UN ARTICLE EN CNE ---------- */
+  // CNE = Condition Normative Essentielle = condition atomique de l'article,
+  // formulée comme question de fait vérifiable sur les faits du dossier.
+  decomposerArticleEnCNE_v1: {
+    system: `Tu es un juriste analytique. Tu maîtrises la méthode Rx-J de décomposition d'articles de loi en CNE.
+
+DÉFINITION D'UNE CNE (Condition Normative Essentielle) :
+- Une condition ATOMIQUE (une seule idée, non décomposable davantage)
+- Formulée comme une CONDITION VÉRIFIABLE sur les faits (ex: "Existence d'un véhicule automobile")
+- INDÉPENDANTE des autres CNE (peut basculer vrai/faux/incertain seule)
+- Peut être testée par les faits du dossier (✓, ✗ ou ?)
+
+EXEMPLE (article 58 al. 1 LCR : "Le détenteur d'un véhicule automobile répond du dommage causé par le véhicule...") :
+- CNE 1 : Existence d'un véhicule automobile
+- CNE 2 : Dommage causé par ce véhicule
+- CNE 3 : Existence d'un détenteur identifié
+- CNE 4 : Absence de faute exonératoire
+
+JSON valide uniquement.`,
+    user: (articleRef, articleTexte, enjeuNum, enjeuTitre) => `Décompose cet article en CNE atomiques.
+
+ENJEU ${enjeuNum} : ${enjeuTitre}
+
+RÉFÉRENCE : ${articleRef}
+TEXTE DE L'ARTICLE :
+"""
+${articleTexte}
+"""
+
+Extrait toutes les CNE atomiques de cet article.
+Règles :
+- Chaque CNE = une seule condition vérifiable
+- Formule la CNE comme un élément factuel ("Existence de X", "Faute du Y", "Lien de causalité entre A et B")
+- Pas plus de 15 mots par CNE
+- Ignore les éléments purement rhétoriques ou redondants
+
+Réponds EXCLUSIVEMENT avec ce JSON :
+{
+  "cnes": [
+    { "num": 1, "libelle": "Existence d'un véhicule automobile" },
+    { "num": 2, "libelle": "Dommage causé par ce véhicule" }
+  ]
+}`
+  },
+
+  /* ---------- ÉTAPE 5 : SYLLOGISMES OPPOSÉS ---------- */
+  genererSyllogismes_v1: {
+    system: `Tu es un juriste expert en argumentation.
+Un SYLLOGISME OPPOSÉ Rx-J = un couple de raisonnements miroirs construits à partir d'une CNE :
+- Formulation PRO-A : "Si [CNE vérifiée/non-vérifiée], alors [position de A est soutenue]"
+- Formulation PRO-B : "Si [CNE vérifiée/non-vérifiée dans l'autre sens], alors [position de B est soutenue]"
+
+Les deux formulations doivent être structurellement symétriques.
+JSON valide uniquement.`,
+    user: (cne, enjeu) => `Construis un couple de syllogismes opposés pour cette CNE.
+
+ENJEU : ${enjeu.titre}
+- Position A : ${enjeu.positionA}
+- Position B : ${enjeu.positionB}
+
+CNE ${cne.code} : ${cne.libelle}
+
+Règles :
+- Formulation en 1 à 2 phrases maximum par côté
+- Structure "Si [condition sur CNE], alors [conséquence pour la partie]"
+- Les deux formulations doivent être miroirs précis
+
+Réponds EXCLUSIVEMENT avec ce JSON :
+{
+  "syllogismeA": "formulation favorable à A",
+  "syllogismeB": "formulation favorable à B (miroir de A)"
+}`
+  },
+
+  /* ---------- ÉTAPE 6 : RAPPORT CNE (unités textuelles ↔ CNE) ---------- */
+  associerUnitesACNE_v1: {
+    system: `Tu es un analyste méticuleux.
+Pour chaque CNE, tu dois retrouver dans les pièces les UNITÉS TEXTUELLES (phrases, propositions) qui soutiennent ou contredisent cette CNE.
+Tu ne fabriques JAMAIS d'unité : tu cites UNIQUEMENT des passages réels présents dans les pièces.
+JSON valide uniquement.`,
+    user: (cne, corpus, enjeu) => `Pour la CNE suivante, identifie les unités textuelles pertinentes dans les pièces.
+
+ENJEU : ${enjeu.titre}
+CNE ${cne.code} : ${cne.libelle}
+
+Règles :
+- Cite chaque unité textuelle EXACTEMENT (copie fidèle)
+- Attribue à chaque unité une partie (A ou B) selon la pièce d'origine
+- Indique si l'unité SOUTIENT (+) ou CONTREDIT (-) la CNE
+- Maximum 3 unités par partie
+
+Réponds EXCLUSIVEMENT avec ce JSON :
+{
+  "unitesA": [
+    { "texte": "citation exacte", "source": "nom de la pièce", "soutien": "+", "analyse": "phrase expliquant le lien avec la CNE" }
+  ],
+  "unitesB": [
+    { "texte": "citation exacte", "source": "nom de la pièce", "soutien": "-", "analyse": "..." }
+  ]
+}
+
+PIÈCES :
+${corpus}`
+  },
+
+  /* ---------- ANALYSE LORD (prompt de Dan version 1 — textuel) ---------- */
+  analyserLORD_v1: {
+    system: `Tu es un auditeur indépendant spécialisé dans l'analyse critique de rapports institutionnels, sociaux et d'expertise. Ta mission est d'analyser un texte selon 24 filtres d'anomalies (L1-L7, O1-O10, R1-R3, D1-D4).
+
+DÉFINITIONS DES FILTRES :
+
+BLOC L — LOGIQUE :
+L1 Généralisation abusive — Projection du cas particulier vers l'universel sans justification.
+L2 Fausse causalité (Post Hoc) — Corrélation temporelle prise pour causalité mécanique.
+L3 Faux dilemme — Réduction artificielle à une dichotomie exclusive.
+L4 Attaque ad hominem — Critique de l'énonciateur plutôt que de l'argument.
+L5 Raisonnement circulaire — La conclusion est dans la prémisse.
+L6 Homme de paille — Déformation de la thèse adverse.
+L7 Téléologie rétrospective — Attribution d'intentions connues seulement a posteriori.
+
+BLOC O — OBJECTIVITÉ :
+O1 Factualité vs assertion gratuite — Absence d'ancrage spatio-temporel.
+O2 Argumentation fondée vs non-fondée — Qualification sans justification.
+O3 Preuve objective vs ressenti — Impression subjective présentée comme fait.
+O4 Prouvé vs supposé — Confusion allégation/fait établi.
+O5 Description vs interprétation psychologique — Intrusion dans la psyché du sujet.
+O6 Adjectifs qualificatifs — Évaluation subjective sans critère objectif.
+O7 Vérifiabilité — Énoncé non capturable par caméra présenté comme factuel.
+O8 Ancrage source — Fusion parole rapportée / interprétation.
+O9 Passivation agentive — Effacement de l'agent ou du patient.
+O10 Fait allégué vs fait établi — Allégation présentée comme acquise.
+
+BLOC R — RHÉTORIQUE :
+R1 Logos vs pathos — Activation émotionnelle au lieu de preuve.
+R2 Noyage de poisson — Saturation par accumulation de détails.
+R3 Langage de suggestion — Adverbes de force imposant l'évidence.
+
+BLOC D — DÉONTOLOGIQUE :
+D1 Neutralité vs posture partisane — Dissymétrie lexicale entre parties.
+D2 Équilibre des versions — Non-respect du contradictoire.
+D3 Respect du rôle — Débordement du mandat technique.
+D4 Ciblage du jugement — Essentialisation (ce que la personne EST) vs acte (ce qu'elle A FAIT).
+
+INSTRUCTIONS STRICTES :
+1. Analyse le texte phrase par phrase ou proposition par proposition.
+2. Pour chaque élément détecté :
+   - Cite exactement le segment textuel entre guillemets.
+   - Identifie le code du filtre (ex: O5).
+   - Explique brièvement pourquoi c'est une anomalie selon la définition du filtre.
+3. Si une phrase est conforme (ne déclenche aucun filtre), ne la mentionne pas.
+4. Reste factuel et neutre. Ne "corrige" pas le texte, signale uniquement les anomalies.
+5. À la fin, fournis un tableau récapitulatif : Code du filtre | Nombre d'occurrences | Niveau de risque global.
+
+Réponds UNIQUEMENT en JSON valide :
+{
+  "anomalies": [
+    { "citation": "segment exact", "filtre": "O5", "explication": "..." }
+  ],
+  "recap": [
+    { "filtre": "O5", "occurrences": 3, "risque": "élevé" }
+  ],
+  "risqueGlobal": "faible|modéré|élevé"
+}`,
+    user: (cible, texte) => `Cible de l'analyse : ${cible}
+
+TEXTE À ANALYSER :
+"""
+${texte}
+"""`
+  },
+
+  /* ---------- ANALYSE OBJ/SUBJ ---------- */
+  analyserObjSubj_v1: {
+    system: `Tu es un analyste de moyens de preuve.
+Tu classifies les unités textuelles en OBJ (objectif : fait matériel vérifiable, pièce datée, document officiel) ou SUBJ (subjectif : déclaration, opinion, ressenti, jugement de valeur non étayé).
+JSON valide uniquement.`,
+    user: (texte) => `Analyse ce texte et classifie chaque phrase/unité.
+
+TEXTE :
+"""
+${texte}
+"""
+
+Réponds EXCLUSIVEMENT avec ce JSON :
+{
+  "unites": [
+    { "texte": "citation exacte", "classification": "OBJ", "justification": "..." },
+    { "texte": "citation exacte", "classification": "SUBJ", "justification": "..." }
+  ],
+  "stats": { "OBJ": 12, "SUBJ": 8 }
+}`
+  }
+};
+
+/* Helper : appel IA avec parsing JSON sécurisé */
+async function callClaudeJSON(promptDef, ...args) {
+  const system = promptDef.system;
+  const user = typeof promptDef.user === "function" ? promptDef.user(...args) : promptDef.user;
+  const raw = await callClaude(system, user, 3000);
+  const cleaned = raw.replace(/```json|```/g, "").trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    // Tentative de récupération : chercher le premier { ... } dans la réponse
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+    throw new Error("JSON invalide : " + cleaned.slice(0, 200));
+  }
+}
+
+/* ----------- DOSSIERS FICTIFS PRÉ-CHARGÉS ----------- */
+const FAKE_CASES = {
+  "garde_enfant": {
+    caseId: "case_rxj_001",
+    title: "Dupont c/ Martin — Garde d'enfant",
+    partieA: "Nicolas Dupont (père)",
+    partieB: "Sophie Martin (mère)",
+    documents: [
+      {
+        id: "doc_001", filename: "Requete_garde_alternee_Dupont.pdf",
+        date: "2024-03-15", type: "requete", author: "Me Bardot",
+        title: "Requête en instauration d'une garde alternée",
+        party: "A",
+        text: `REQUÊTE EN INSTAURATION D'UNE GARDE ALTERNÉE
+
+Tribunal de première instance de Genève
+Déposée par M. Nicolas DUPONT, né le 12.06.1977, domicilié à Genève, représenté par Me Michel BARDOT.
+
+Contre Mme Sophie MARTIN, née le 23.09.1980, domiciliée à Genève.
+
+FAITS :
+1. Les parties ont eu un enfant commun, Lucas Dupont, né le 04.08.2018.
+2. Le couple s'est séparé en janvier 2023 d'un commun accord.
+3. Depuis la séparation, l'enfant vit au domicile de sa mère un week-end sur deux chez le père.
+4. M. Dupont dispose d'un logement adapté à l'accueil de l'enfant (3 pièces, chambre individuelle).
+5. M. Dupont travaille en horaires réguliers (8h-17h) et peut organiser sa vie professionnelle autour de l'enfant.
+6. Les relations entre les parents sont cordiales malgré la séparation.
+
+CONCLUSIONS :
+M. Dupont sollicite respectueusement du Tribunal qu'il instaure une garde alternée hebdomadaire, avec transfert le vendredi à la sortie de l'école.`
+      },
+      {
+        id: "doc_002", filename: "Reponse_Martin.pdf",
+        date: "2024-04-02", type: "requete", author: "Me Lefèvre",
+        title: "Réponse — opposition à la garde alternée",
+        party: "B",
+        text: `RÉPONSE À LA REQUÊTE EN GARDE ALTERNÉE
+
+Déposée par Mme Sophie MARTIN, représentée par Me Anne LEFÈVRE.
+
+Mme Martin s'oppose à la requête pour les motifs suivants :
+1. L'enfant Lucas vit depuis la naissance principalement avec sa mère, qui est sa figure de référence stable.
+2. Les relations entre les parents sont devenues tendues ces derniers mois, notamment autour des questions scolaires.
+3. Une garde alternée imposerait à l'enfant des changements d'environnement toutes les semaines, source de stress.
+4. L'école primaire où Lucas est scolarisé est plus proche du domicile de la mère.
+5. Mme Martin a réduit son temps de travail pour être disponible pour l'enfant.
+
+CONCLUSIONS :
+Mme Martin sollicite le maintien de la garde exclusive avec un droit de visite élargi en faveur du père (un week-end sur deux + la moitié des vacances scolaires).`
+      },
+      {
+        id: "doc_003", filename: "Email_Pere_ecole.pdf",
+        date: "2024-02-10", type: "email", author: "Nicolas Dupont",
+        title: "Email concernant l'inscription scolaire",
+        party: "A",
+        text: `De : nicolas.dupont@email.ch
+À : sophie.martin@email.ch
+Date : 10 février 2024, 14:23
+Objet : Inscription Lucas année prochaine
+
+Sophie,
+
+Je voulais qu'on discute de l'inscription de Lucas pour l'année prochaine. Je trouve qu'on n'échange pas assez sur ces sujets importants. J'ai vu que tu avais rempli le dossier sans me consulter. J'aimerais qu'on décide ensemble de ce genre de choses, on partage l'autorité parentale.
+
+Peux-tu me tenir au courant des prochaines démarches ?
+
+Nicolas`
+      },
+      {
+        id: "doc_004", filename: "Attestation_ecole.pdf",
+        date: "2024-03-01", type: "attestation", author: "École primaire des Eaux-Vives",
+        title: "Attestation de scolarisation",
+        party: "B",
+        text: `ATTESTATION
+
+École primaire des Eaux-Vives, Genève
+
+Nous attestons que Lucas DUPONT, né le 04.08.2018, est scolarisé en 2P dans notre établissement depuis septembre 2023.
+
+L'enfant montre une bonne intégration et des résultats conformes aux attentes de son niveau. Sa mère, Mme Martin, est notre interlocutrice principale pour les questions scolaires.
+
+Fait à Genève, le 1er mars 2024.
+La directrice, M.-L. Berger`
+      },
+      {
+        id: "doc_005", filename: "Facture_activites.pdf",
+        date: "2024-01-20", type: "autre", author: "Club sportif",
+        title: "Facture activités extra-scolaires",
+        party: "B",
+        text: `CLUB SPORTIF JUNIOR GENÈVE
+Facture N° 2024-0148 — 20 janvier 2024
+
+Payeur : Sophie Martin
+Bénéficiaire : Lucas Dupont
+Cours de judo — trimestre hiver 2024 : 180.- CHF
+Cours de piscine — trimestre hiver 2024 : 120.- CHF
+Total : 300.- CHF`
+      },
+      {
+        id: "doc_006", filename: "Photo_domicile_pere.jpg",
+        date: "2024-03-10", type: "image", author: "Nicolas Dupont",
+        title: "Photos du domicile du père (non-tx)",
+        party: "A",
+        nonTx: true,
+        text: "[Document non textualisable — image]"
+      }
+    ]
+  },
+
+  "accident_circulation": {
+    caseId: "case_rxj_002",
+    title: "Martin c/ Leroy — Accident de la circulation",
+    partieA: "Sophie Martin (piétonne)",
+    partieB: "Marc Leroy (automobiliste)",
+    documents: [
+      {
+        id: "doc_a01", filename: "Plainte_Martin.pdf",
+        date: "2024-03-12", type: "plainte", author: "Me Rochat",
+        title: "Plainte civile pour dommages corporels et matériels",
+        party: "A",
+        text: `PLAINTE CIVILE
+
+Déposée par Mme Sophie MARTIN, née le 15.04.1996, domiciliée à Genève, représentée par Me Pierre ROCHAT.
+
+Contre M. Marc LEROY, né le 02.11.1979, domicilié à Genève.
+
+FAITS :
+Le 5 mars 2024 à 14h30, Mme Martin traversait un passage piéton à Genève (avenue de Champel) lorsqu'elle a été percutée par le véhicule automobile de M. Leroy.
+
+Conséquences pour Mme Martin :
+- Fracture ouverte de la jambe gauche (tibia et péroné)
+- Arrêt de travail de 3 mois établi par certificat médical
+- Destruction de son smartphone personnel (iPhone 15, valeur 800 CHF)
+- Frais médicaux à ce jour : 4'500 CHF
+
+CONCLUSIONS :
+Mme Martin sollicite réparation intégrale des dommages corporels et matériels subis, sur la base de la responsabilité objective du détenteur du véhicule (art. 58 LCR) et subsidiairement de l'art. 41 CO.`
+      },
+      {
+        id: "doc_a02", filename: "Reponse_Leroy.pdf",
+        date: "2024-04-05", type: "requete", author: "Me Favre",
+        title: "Mémoire en réponse — M. Leroy",
+        party: "B",
+        text: `MÉMOIRE EN RÉPONSE
+
+Déposé par M. Marc LEROY, représenté par Me Claude FAVRE.
+
+M. Leroy ne conteste pas les faits matériels mais soutient que :
+
+1. Le passage piéton en cause est équipé d'un feu tricolore pour les piétons.
+2. Au moment des faits, le feu piéton était au ROUGE, comme attesté par le témoin M. Dubois.
+3. Mme Martin a donc traversé en violation du feu rouge, commettant une faute concomitante grave.
+4. M. Leroy roulait à 45 km/h dans une zone limitée à 50 km/h, respectant donc la limitation.
+5. Malgré une vigilance normale, il lui a été matériellement impossible de freiner à temps.
+
+Par ailleurs, M. Leroy demande réparation des dommages subis par son véhicule :
+- Réparation pare-chocs avant : 1'200 CHF
+- Immobilisation véhicule 2 semaines
+
+CONCLUSIONS :
+M. Leroy sollicite le rejet intégral ou subsidiairement la réduction substantielle des prétentions de Mme Martin au vu de la faute concomitante, et reconventionnellement la condamnation de Mme Martin à lui verser 1'200 CHF.`
+      },
+      {
+        id: "doc_a03", filename: "Temoignage_Dubois.pdf",
+        date: "2024-03-06", type: "attestation", author: "M. Dubois",
+        title: "Déposition du témoin M. Dubois",
+        party: "B",
+        text: `DÉPOSITION
+
+Je soussigné Marc DUBOIS, né le 22.07.1965, domicilié à Genève, déclare ce qui suit concernant l'accident du 5 mars 2024 à 14h30 avenue de Champel :
+
+J'étais arrêté à l'arrêt de bus situé à 10 mètres du passage piéton. J'ai vu la jeune femme s'engager sur le passage piéton. Le feu piéton était bien au rouge — j'en suis certain car j'attendais moi-même que le feu passe au vert pour traverser de l'autre côté.
+
+La voiture arrivait à une vitesse raisonnable, je n'ai pas eu l'impression qu'elle roulait vite. Le conducteur a freiné mais le choc était inévitable compte tenu de la distance.
+
+Fait à Genève, le 6 mars 2024.
+M. Dubois`
+      },
+      {
+        id: "doc_a04", filename: "Certificat_medical.pdf",
+        date: "2024-03-05", type: "attestation", author: "Dr. Meyer, HUG",
+        title: "Certificat médical initial",
+        party: "A",
+        text: `HÔPITAUX UNIVERSITAIRES DE GENÈVE
+Service des urgences — Certificat médical
+
+Patiente : Sophie Martin, née le 15.04.1996
+Date d'admission : 05.03.2024, 15h12
+
+Diagnostic : Fracture ouverte déplacée du tibia et du péroné gauches, suite à accident de la circulation.
+
+Traitement : Réduction chirurgicale en urgence, ostéosynthèse par plaque vissée.
+Immobilisation plâtrée prévue : 8 semaines. Rééducation : 4 semaines.
+
+Arrêt de travail complet : 3 mois à compter du 05.03.2024.
+
+Dr. Meyer, Service d'orthopédie, HUG.`
+      },
+      {
+        id: "doc_a05", filename: "Facture_smartphone.pdf",
+        date: "2023-10-15", type: "autre", author: "Digitec",
+        title: "Facture iPhone 15 (destruction lors de l'accident)",
+        party: "A",
+        text: `DIGITEC GALAXUS SA
+Facture N° FA-23-104728 — 15 octobre 2023
+
+Client : Sophie Martin
+Article : Apple iPhone 15 128 Go Noir
+Prix : 799.- CHF
+Garantie : 24 mois
+
+Note manuscrite : "Téléphone détruit lors de l'accident du 05.03.2024."`
+      },
+      {
+        id: "doc_a06", filename: "Devis_reparation_voiture.pdf",
+        date: "2024-03-08", type: "autre", author: "Garage du Léman",
+        title: "Devis réparation voiture Leroy",
+        party: "B",
+        text: `GARAGE DU LÉMAN SA
+Devis N° D-2024-0189 — 8 mars 2024
+
+Client : Marc Leroy
+Véhicule : Audi A4, plaque GE 123456
+
+Travaux :
+- Remplacement pare-chocs avant : 680.- CHF
+- Peinture et mise en teinte : 420.- CHF
+- Main d'œuvre (4h) : 320.- CHF
+Remise commerciale : -220.- CHF
+
+Total TTC : 1'200.- CHF
+
+Immobilisation prévue : 2 semaines.`
+      }
+    ]
+  }
+};
+
+// Compat avec l'ancien code : FAKE_CASE pointe par défaut sur le cas actif
+let CURRENT_CASE_KEY = "garde_enfant";
+const FAKE_CASE = FAKE_CASES[CURRENT_CASE_KEY];
+
+/* ----------- ÉTAT GLOBAL ----------- */
+/* Nouvelle structure : plusieurs enjeux, chaque enjeu a ses articles, chaque article ses CNE */
+let state = {
+  documents: [],
+  activeDocId: null,
+  parties: { A: null, B: null, validated: false },
+  enjeux: [],  // [{ num, titre, positionA, positionB, validated, articles: [...] }]
+  enjeuxValidated: false,
+  /* Chaque article est rattaché à un enjeu et contient ses CNE :
+     { id, enjeuNum, ref, texte, validated, cnes: [{ code, libelle, validated, syllogismeA, syllogismeB, unites: {A:[], B:[]} }] }
+  */
+  rapportCNE: { validated: false },
+  tcjFilled: false,
+  reports: [],
+  activeTab: "dossier"
+};
+
+function saveState() {
+  try { localStorage.setItem("neolaw_state_v2", JSON.stringify(state)); } catch(e) {}
+}
+function loadState() {
+  try {
+    const s = localStorage.getItem("neolaw_state_v2");
+    if (s) {
+      const loaded = JSON.parse(s);
+      state = { ...state, ...loaded };
+    }
+  } catch(e) {}
+}
+
+/* Helpers pour accéder aux CNE / articles dans la structure imbriquée */
+function getAllArticles() {
+  const arts = [];
+  state.enjeux.forEach(e => (e.articles || []).forEach(a => arts.push({ ...a, enjeuTitre: e.titre })));
+  return arts;
+}
+function getAllCNEs() {
+  const cnes = [];
+  state.enjeux.forEach(e => (e.articles || []).forEach(a => (a.cnes || []).forEach(c => {
+    cnes.push({ ...c, articleRef: a.ref, articleId: a.id, enjeuNum: e.num, enjeuTitre: e.titre });
+  })));
+  return cnes;
+}
+function allCNEsValidated() {
+  const cnes = getAllCNEs();
+  return cnes.length > 0 && cnes.every(c => c.validated);
+}
+function allSyllogismesGenerated() {
+  const cnes = getAllCNEs();
+  return cnes.length > 0 && cnes.every(c => c.syllogismeA && c.syllogismeB);
+}
+
+/* ----------- ÉTAPES ----------- */
+const STEPS = [
+  { id: "parties", num: 1, label: "Identification parties", key: "parties" },
+  { id: "enjeux", num: 2, label: "Identification enjeux", key: "enjeux" },
+  { id: "articles", num: 3, label: "Articles de loi", key: "articles" },
+  { id: "cne", num: 4, label: "Décomposition CNE", key: "cne" },
+  { id: "syllo", num: 5, label: "Syllogismes", key: "syllo" },
+  { id: "rapport", num: 6, label: "Rapport CNE", key: "rapport" },
+  { id: "tcj", num: 7, label: "Remplir TCJ", key: "tcj" }
+];
+
+function stepStatus(idx) {
+  // 0 = pas encore accessible, 1 = accessible, 3 = terminée
+  if (state.documents.length === 0) return 0;
+  const stepKey = STEPS[idx].key;
+  if (stepKey === "parties") return state.parties.validated ? 3 : 1;
+  if (stepKey === "enjeux") {
+    if (!state.parties.validated) return 0;
+    return state.enjeuxValidated ? 3 : 1;
+  }
+  if (stepKey === "articles") {
+    if (!state.enjeuxValidated) return 0;
+    const allArts = getAllArticles();
+    if (allArts.length === 0) return 1;
+    return allArts.every(a => a.validated) ? 3 : 1;
+  }
+  if (stepKey === "cne") {
+    const allArts = getAllArticles();
+    if (allArts.length === 0 || !allArts.every(a => a.validated)) return 0;
+    return allCNEsValidated() ? 3 : 1;
+  }
+  if (stepKey === "syllo") {
+    if (!allCNEsValidated()) return 0;
+    return allSyllogismesGenerated() ? 3 : 1;
+  }
+  if (stepKey === "rapport") {
+    if (!allSyllogismesGenerated()) return 0;
+    return state.rapportCNE.validated ? 3 : 1;
+  }
+  if (stepKey === "tcj") {
+    if (!state.rapportCNE.validated) return 0;
+    return state.tcjFilled ? 3 : 1;
+  }
+  return 0;
+}
+
+function renderSteps() {
+  const bar = document.getElementById("stepsBar");
+  bar.innerHTML = "";
+  STEPS.forEach((step, idx) => {
+    const status = stepStatus(idx);
+    const btn = document.createElement("button");
+    btn.className = "step-btn";
+    if (status === 1) btn.classList.add("active");
+    if (status === 3) btn.classList.add("done");
+    btn.innerHTML = `<span class="step-dot">${step.num}</span> ${step.label}${status === 3 ? " ✓" : ""}`;
+    btn.onclick = () => {
+      if (status === 1) runStep(step.key);
+      else if (status === 3) scrollToSection(step.id);
+    };
+    bar.appendChild(btn);
+  });
+}
+
+function scrollToSection(sectionId) {
+  const el = document.getElementById(`section-${sectionId}`);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ----------- UI: TOAST ----------- */
+function toast(msg, type = "") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast show " + type;
+  setTimeout(() => t.className = "toast", 2500);
+}
+
+/* ----------- UI: MODALES ----------- */
+function openModal(id) { document.getElementById(id).classList.remove("hidden"); }
+function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+document.querySelectorAll(".close-modal").forEach(btn => {
+  btn.onclick = () => closeModal(btn.dataset.modal);
+});
+
+/* ----------- UI: TABS ----------- */
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll("[id^=tab-]").forEach(t => t.classList.add("hidden"));
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.remove("hidden");
+    state.activeTab = btn.dataset.tab;
+  };
+});
+
+/* ----------- IMPORT ----------- */
+function updateImportFilesList() {
+  const choice = document.querySelector('input[name="caseChoice"]:checked')?.value || "garde_enfant";
+  const caseData = FAKE_CASES[choice];
+  const list = document.getElementById("importFilesList");
+  list.innerHTML = caseData.documents.map(d => `• ${d.filename}`).join("<br>");
+  // Mettre à jour le titre du dossier
+  document.getElementById("caseTitle").textContent = caseData.title;
+}
+
+document.getElementById("btnImport").onclick = () => {
+  updateImportFilesList();
+  openModal("modalImport");
+};
+
+// Mettre à jour la liste quand on change de radio
+document.addEventListener("change", (e) => {
+  if (e.target.name === "caseChoice") updateImportFilesList();
+});
+
+document.getElementById("btnConfirmImport").onclick = async () => {
+  closeModal("modalImport");
+  const choice = document.querySelector('input[name="caseChoice"]:checked')?.value || "garde_enfant";
+  CURRENT_CASE_KEY = choice;
+  const caseData = FAKE_CASES[choice];
+  document.getElementById("caseTitle").textContent = caseData.title;
+
+  openModal("modalProcessing");
+  const txt = document.getElementById("processingText");
+  const stepsDiv = document.getElementById("processingSteps");
+  stepsDiv.innerHTML = "";
+
+  // Simulation progressive de l'import + extraction vraie IA sur un document
+  const docs = caseData.documents;
+  for (let i = 0; i < docs.length; i++) {
+    const d = docs[i];
+    txt.textContent = `Importation ${i+1}/${docs.length} : ${d.filename}`;
+    const stepEl = document.createElement("div");
+    stepEl.className = "flex items-center gap-2 px-2 py-1 rounded bg-slate-50 border border-slate-200";
+    stepEl.innerHTML = `<div class="spinner" style="width:10px;height:10px;border-width:1.5px;"></div> <span class="text-slate-600">${d.filename}</span>`;
+    stepsDiv.appendChild(stepEl);
+
+    // Pour le premier doc texte : vraie extraction IA de métadonnées
+    let extractedMeta = null;
+    if (i === 0 && !d.nonTx) {
+      try {
+        stepEl.innerHTML = `<div class="spinner" style="width:10px;height:10px;border-width:1.5px;"></div> <span class="text-purple-600 font-medium">🤖 IA : extraction métadonnées…</span>`;
+        const resp = await callClaude(
+          "Tu es un assistant spécialisé en analyse de documents juridiques. Tu réponds UNIQUEMENT en JSON valide, sans texte autour, sans markdown.",
+          `Analyse ce document juridique et extrait les métadonnées. Réponds avec un JSON de la forme : {"title": "...", "date": "YYYY-MM-DD", "type": "email|lettre|plainte|requete|ordonnance|attestation|autre", "author": "..."}
+
+Document :
+---
+${d.text}
+---`,
+          500
+        );
+        const cleaned = resp.replace(/```json|```/g, "").trim();
+        extractedMeta = JSON.parse(cleaned);
+        stepEl.innerHTML = `<span class="text-emerald-600">✓</span> <span class="text-slate-700">${d.filename} — IA : ${extractedMeta.title}</span>`;
+      } catch(e) {
+        console.warn("IA fallback :", e);
+        stepEl.innerHTML = `<span class="text-amber-600">⚠</span> <span class="text-slate-700">${d.filename} — fallback (${e.message.slice(0,40)}…)</span>`;
+      }
+    } else {
+      await sleep(150 + Math.random() * 200);
+      stepEl.innerHTML = `<span class="text-emerald-600">✓</span> <span class="text-slate-700">${d.filename}</span>`;
+    }
+
+    state.documents.push({
+      ...d,
+      aiTitle: extractedMeta?.title || d.title,
+      aiDate: extractedMeta?.date || d.date,
+      aiType: extractedMeta?.type || d.type,
+      aiAuthor: extractedMeta?.author || d.author,
+      validated: false,
+      comment: ""
+    });
+  }
+
+  txt.textContent = "Importation terminée. Fiches documentaires à valider.";
+  await sleep(500);
+  closeModal("modalProcessing");
+  saveState();
+  renderArchive();
+  renderSteps();
+  toast(`${docs.length} documents importés`, "success");
+
+  // Ouvrir auto la fiche du premier document
+  openDocForm(state.documents[0].id);
+};
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ----------- ARCHIVE ----------- */
+function renderArchive() {
+  const list = document.getElementById("archiveList");
+  document.getElementById("docCount").textContent = state.documents.length + " doc.";
+  list.innerHTML = "";
+  // Tri chronologique
+  const sorted = [...state.documents].sort((a,b) => (a.aiDate || a.date).localeCompare(b.aiDate || b.date));
+  sorted.forEach(doc => {
+    const item = document.createElement("div");
+    item.className = "doc-item" + (doc.nonTx ? " non-tx" : "") + (state.activeDocId === doc.id ? " active" : "");
+    item.innerHTML = `
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span class="text-[10px] text-slate-400 mono">${(doc.aiDate || doc.date).slice(5).replace("-", "/")}</span>
+          ${doc.nonTx ? '<span class="text-[9px] text-amber-600 font-semibold">(non-tx)</span>' : ''}
+          ${doc.validated ? '<span class="text-[9px] text-emerald-600">✓</span>' : '<span class="text-[9px] text-amber-600">●</span>'}
+        </div>
+        <div class="text-[11px] font-medium text-slate-700 truncate">${doc.aiTitle || doc.title}</div>
+        <div class="text-[9px] text-slate-500 truncate">${doc.aiAuthor || doc.author}</div>
+        <div class="flex gap-1 mt-0.5">
+          <button class="mini-btn text-[8px] px-1" onclick="event.stopPropagation(); openDocForm('${doc.id}')">Fiche</button>
+          <button class="mini-btn text-[8px] px-1" onclick="event.stopPropagation(); openLecture('${doc.id}')">Lire</button>
+        </div>
+      </div>
+    `;
+    item.onclick = () => openLecture(doc.id);
+    list.appendChild(item);
+  });
+}
+
+/* ----------- FICHE DOC ----------- */
+let currentDocFormId = null;
+function openDocForm(docId) {
+  const doc = state.documents.find(d => d.id === docId);
+  if (!doc) return;
+  currentDocFormId = docId;
+  document.getElementById("docFormInfo").innerHTML = `
+    <div><span class="font-semibold">Fichier :</span> ${doc.filename}</div>
+    <div><span class="font-semibold">Type MIME :</span> ${doc.nonTx ? "image/jpeg" : "application/pdf"}</div>
+    <div><span class="font-semibold">Import :</span> ${new Date().toISOString().slice(0,10)}</div>
+    <div><span class="font-semibold">Textualisable :</span> ${doc.nonTx ? '<span class="text-amber-600">Non</span>' : '<span class="text-emerald-600">Oui</span>'}</div>
+    ${!doc.nonTx ? `<div><span class="font-semibold">Caractères :</span> ${doc.text.length}</div>` : ""}
+    <div class="mt-2 p-2 bg-white rounded border border-slate-200 text-[9px] text-slate-500 max-h-24 overflow-y-auto">
+      ${doc.text.slice(0, 300)}${doc.text.length > 300 ? "…" : ""}
+    </div>
+  `;
+  document.getElementById("docFormTitle").value = doc.aiTitle || "";
+  document.getElementById("docFormDate").value = doc.aiDate || "";
+  document.getElementById("docFormType").value = doc.aiType || "autre";
+  document.getElementById("docFormAuthor").value = doc.aiAuthor || "";
+  document.getElementById("docFormComment").value = doc.comment || "";
+  openModal("modalDocForm");
+}
+
+document.getElementById("btnValidateDoc").onclick = () => {
+  const doc = state.documents.find(d => d.id === currentDocFormId);
+  if (!doc) return;
+  doc.aiTitle = document.getElementById("docFormTitle").value;
+  doc.aiDate = document.getElementById("docFormDate").value;
+  doc.aiType = document.getElementById("docFormType").value;
+  doc.aiAuthor = document.getElementById("docFormAuthor").value;
+  doc.comment = document.getElementById("docFormComment").value;
+  doc.validated = true;
+  saveState();
+  renderArchive();
+  closeModal("modalDocForm");
+  toast("Document validé", "success");
+
+  // Ouvrir auto le suivant si non validé
+  const next = state.documents.find(d => !d.validated);
+  if (next) setTimeout(() => openDocForm(next.id), 300);
+};
+
+/* ----------- LECTURE ----------- */
+function openLecture(docId) {
+  const doc = state.documents.find(d => d.id === docId);
+  if (!doc) return;
+  state.activeDocId = docId;
+  // Switch tab
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelector('[data-tab="lecture"]').classList.add("active");
+  document.querySelectorAll("[id^=tab-]").forEach(t => t.classList.add("hidden"));
+  document.getElementById("tab-lecture").classList.remove("hidden");
+
+  const content = document.getElementById("lectureContent");
+  if (doc.nonTx) {
+    content.innerHTML = `
+      <div class="text-center py-10 text-slate-500">
+        <div class="text-4xl mb-3">🖼️</div>
+        <div class="font-semibold">${doc.aiTitle || doc.title}</div>
+        <div class="text-[11px] mt-1">Document non textualisable (image)</div>
+      </div>`;
+  } else {
+    // Fragmenter en unités (phrases)
+    const units = fragmentText(doc.text);
+    content.innerHTML = `
+      <div class="mb-3 pb-2 border-b border-slate-300">
+        <div class="font-semibold text-[13px]">${doc.aiTitle || doc.title}</div>
+        <div class="text-[10px] text-slate-500">${doc.aiDate} · ${doc.aiAuthor} · ${doc.aiType}</div>
+      </div>
+      <div class="space-y-1.5">
+        ${units.map(u => `
+          <div class="unit-text">
+            <span class="unit-code">(${u.code})</span> ${u.text}
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+  renderArchive();
+}
+
+function fragmentText(text) {
+  // Simple segmentation en phrases
+  const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z])/).filter(s => s.trim().length > 10);
+  return sentences.map((s, i) => ({
+    code: randomCode(i),
+    text: s.trim()
+  }));
+}
+
+function randomCode(seed) {
+  const letters = "abcdefghijklmnopqrstuvwxyz";
+  let code = "";
+  for (let i = 0; i < 3; i++) code += letters[(seed * 7 + i * 13) % 26];
+  return code;
+}
+
+/* ============================================================
+   ÉTAPES D'ANALYSE
+   ============================================================ */
+
+async function runStep(stepKey) {
+  if (stepKey === "parties") return await runParties();
+  if (stepKey === "enjeux") return await runEnjeux();
+  if (stepKey === "articles") return await runArticles();
+  if (stepKey === "cne") return await runCNE();
+  if (stepKey === "syllo") return await runSyllogismes();
+  if (stepKey === "rapport") return await runRapportCNE();
+  if (stepKey === "tcj") return await runTCJ();
+}
+
+/* --- ÉTAPE 1 : PARTIES (VRAIE IA avec prompt Dan) --- */
+async function runParties() {
+  const status = document.getElementById("parties-status");
+  status.className = "text-[9px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 pulse";
+  status.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;margin-right:4px;"></span>Lecture IA en cours…';
+  toast("🤖 L'IA identifie les parties…", "ai");
+
+  try {
+    const corpus = state.documents.filter(d => !d.nonTx).map(d => `[${d.filename}]\n${d.text}`).join("\n\n---\n\n");
+    const parsed = await callClaudeJSON(PROMPTS.identifierParties_v1, corpus);
+    state.parties = { A: parsed.partieA, B: parsed.partieB, validated: false };
+    renderParties();
+    status.className = "text-[9px] px-2 py-0.5 rounded bg-blue-100 text-blue-700";
+    status.textContent = "Proposition IA — à valider";
+    toast("Parties identifiées — à valider", "success");
+  } catch(e) {
+    status.className = "text-[9px] px-2 py-0.5 rounded bg-rose-100 text-rose-700";
+    status.textContent = "Erreur IA";
+    toast("Erreur IA : " + e.message.slice(0, 80), "error");
+    console.error(e);
+  }
+  saveState();
+  renderSteps();
+}
+
+function renderParties() {
+  document.getElementById("partyA-content").innerHTML = state.parties.A
+    ? `<div>${state.parties.A}</div>
+       ${!state.parties.validated ? `
+       <div class="flex gap-1 mt-2">
+         <button class="mini-btn edit" onclick="editParty('A')">Éditer</button>
+         <button class="mini-btn validate" onclick="validateParties()">Valider les deux</button>
+       </div>` : '<div class="mt-1"><span class="validated-tag">VALIDÉ</span></div>'}`
+    : '<span class="italic text-slate-400">— Non identifié —</span>';
+  document.getElementById("partyB-content").innerHTML = state.parties.B
+    ? `<div>${state.parties.B}</div>
+       ${state.parties.validated ? '<div class="mt-1"><span class="validated-tag">VALIDÉ</span></div>' : ''}`
+    : '<span class="italic text-slate-400">— Non identifié —</span>';
+}
+
+window.editParty = (p) => {
+  const newVal = prompt(`Éditer partie ${p} :`, state.parties[p]);
+  if (newVal !== null) { state.parties[p] = newVal; saveState(); renderParties(); }
+};
+
+window.validateParties = () => {
+  state.parties.validated = true;
+  document.getElementById("parties-status").className = "text-[9px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700";
+  document.getElementById("parties-status").textContent = "Parties validées ✓";
+  renderParties();
+  saveState();
+  renderSteps();
+  toast("Parties validées", "success");
+};
+
+/* --- ÉTAPE 2 : ENJEUX (VRAIE IA, multi-enjeux) --- */
+async function runEnjeux() {
+  const status = document.getElementById("enjeux-status");
+  status.className = "text-[9px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 pulse";
+  status.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;margin-right:4px;"></span>Lecture IA en cours…';
+  toast("🤖 L'IA formule les enjeux…", "ai");
+
+  try {
+    const corpus = state.documents.filter(d => !d.nonTx).map(d => `[${d.filename}]\n${d.text}`).join("\n\n---\n\n");
+    const parsed = await callClaudeJSON(
+      PROMPTS.identifierEnjeux_v1,
+      { A: state.parties.A, B: state.parties.B },
+      corpus
+    );
+    // Structure : chaque enjeu a ses articles (vides au départ)
+    state.enjeux = parsed.enjeux.map(e => ({
+      num: e.num,
+      titre: e.titre,
+      positionA: e.positionA,
+      positionB: e.positionB,
+      validated: false,
+      articles: []
+    }));
+    state.enjeuxValidated = false;
+    renderEnjeux();
+    status.className = "text-[9px] px-2 py-0.5 rounded bg-blue-100 text-blue-700";
+    status.textContent = `${state.enjeux.length} enjeu(x) — à valider`;
+    toast(`${state.enjeux.length} enjeu(x) identifié(s)`, "success");
+  } catch(e) {
+    status.className = "text-[9px] px-2 py-0.5 rounded bg-rose-100 text-rose-700";
+    status.textContent = "Erreur IA";
+    toast("Erreur IA : " + e.message.slice(0, 80), "error");
+    console.error(e);
+  }
+  saveState();
+  renderSteps();
+}
+
+function renderEnjeux() {
+  // On cherche d'abord un container dédié v2, sinon on transforme l'ancien layout
+  let container = document.getElementById("enjeux-container-v2");
+  if (!container) {
+    const section = document.getElementById("section-enjeux");
+    // Supprimer l'ancienne grille si présente
+    const oldGrid = section.querySelector(".grid.grid-cols-2");
+    if (oldGrid) oldGrid.remove();
+    container = document.createElement("div");
+    container.id = "enjeux-container-v2";
+    container.className = "space-y-2";
+    section.appendChild(container);
+  }
+  if (state.enjeux.length === 0) {
+    container.innerHTML = '<div class="text-[11px] text-slate-400 italic">Aucun enjeu identifié.</div>';
+    return;
+  }
+  container.innerHTML = state.enjeux.map((e, idx) => `
+    <div class="border border-slate-200 rounded-lg overflow-hidden ${e.validated ? 'bg-emerald-50' : 'bg-white'}">
+      <div class="bg-slate-100 px-3 py-1.5 border-b border-slate-200 flex items-center justify-between">
+        <div class="text-[11px] font-bold text-slate-800">Enjeu ${e.num} — ${e.titre}</div>
+        ${e.validated ? '<span class="validated-tag">OK</span>' : `<button class="mini-btn validate" onclick="validateEnjeu(${idx})">Valider</button>`}
+      </div>
+      <div class="grid grid-cols-2 divide-x divide-slate-200">
+        <div class="p-2 bg-blue-50/40">
+          <div class="text-[9px] font-bold text-blue-700 uppercase mb-1">Position A</div>
+          <div class="text-[11px] text-slate-700">${e.positionA}</div>
+          ${!e.validated ? `<button class="mini-btn edit text-[9px] mt-1" onclick="editEnjeu(${idx}, 'A')">Éditer</button>` : ''}
+        </div>
+        <div class="p-2 bg-rose-50/40">
+          <div class="text-[9px] font-bold text-rose-700 uppercase mb-1">Position B</div>
+          <div class="text-[11px] text-slate-700">${e.positionB}</div>
+          ${!e.validated ? `<button class="mini-btn edit text-[9px] mt-1" onclick="editEnjeu(${idx}, 'B')">Éditer</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `).join("") + `
+    ${state.enjeux.some(e => !e.validated) ? `
+      <div class="text-center pt-2">
+        <button class="mini-btn validate" onclick="validateAllEnjeux()">Tout valider (${state.enjeux.filter(e=>!e.validated).length} restants)</button>
+      </div>
+    ` : ''}
+  `;
+}
+
+window.editEnjeu = (idx, side) => {
+  const val = prompt(`Éditer position ${side} de l'enjeu ${state.enjeux[idx].num} :`,
+    side === 'A' ? state.enjeux[idx].positionA : state.enjeux[idx].positionB);
+  if (val !== null) {
+    if (side === 'A') state.enjeux[idx].positionA = val;
+    else state.enjeux[idx].positionB = val;
+    saveState();
+    renderEnjeux();
+  }
+};
+
+window.validateEnjeu = (idx) => {
+  state.enjeux[idx].validated = true;
+  if (state.enjeux.every(e => e.validated)) {
+    state.enjeuxValidated = true;
+    document.getElementById("enjeux-status").className = "text-[9px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700";
+    document.getElementById("enjeux-status").textContent = "Tous validés ✓";
+  }
+  saveState();
+  renderEnjeux();
+  renderSteps();
+  toast(`Enjeu ${state.enjeux[idx].num} validé`, "success");
+};
+
+window.validateAllEnjeux = () => {
+  state.enjeux.forEach(e => e.validated = true);
+  state.enjeuxValidated = true;
+  document.getElementById("enjeux-status").className = "text-[9px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700";
+  document.getElementById("enjeux-status").textContent = "Tous validés ✓";
+  saveState();
+  renderEnjeux();
+  renderSteps();
+  toast("Tous les enjeux validés", "success");
+};
+
+/* --- ÉTAPE 3 : ARTICLES (saisie manuelle, IA propose des références) --- */
+async function runArticles() {
+  // Ouvre le modal de gestion des articles
+  openArticlesModal();
+}
+
+function openArticlesModal() {
+  // Génère un modal dynamique
+  let modal = document.getElementById("modalArticles");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "modalArticles";
+    modal.className = "modal-backdrop hidden";
+    modal.innerHTML = `
+      <div class="modal-panel w-full max-w-4xl" style="height: 85vh;">
+        <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5 rounded-t-[10px]">
+          <div>
+            <div class="text-[12px] font-bold text-slate-800">Articles de loi applicables</div>
+            <div class="text-[10px] text-slate-500">L'IA propose les références · Vous collez le texte officiel (anti-hallucination)</div>
+          </div>
+          <div class="flex gap-2">
+            <button id="btnProposerRefs" class="mini-btn edit">🤖 Proposer des références</button>
+            <button class="close-modal mini-btn" data-modal="modalArticles">Fermer</button>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4" id="articlesModalBody"></div>
+        <div class="border-t border-slate-200 bg-slate-50 px-4 py-2.5 rounded-b-[10px] flex items-center justify-between">
+          <div class="text-[10px] text-slate-500">Valide chaque article une fois son texte collé et vérifié.</div>
+          <button id="btnValidateAllArts" class="mini-btn validate">Tout valider</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelector(".close-modal").onclick = () => closeModal("modalArticles");
+    document.getElementById("btnProposerRefs").onclick = proposerReferences;
+    document.getElementById("btnValidateAllArts").onclick = validateAllArticles;
+  }
+  renderArticlesModal();
+  openModal("modalArticles");
+}
+
+function renderArticlesModal() {
+  const body = document.getElementById("articlesModalBody");
+  body.innerHTML = state.enjeux.map((enj, enjIdx) => `
+    <div class="mb-4 border border-slate-200 rounded-lg overflow-hidden">
+      <div class="bg-slate-100 px-3 py-2 border-b border-slate-200 flex items-center justify-between">
+        <div class="text-[11px] font-bold text-slate-800">Enjeu ${enj.num} — ${enj.titre}</div>
+        <button class="mini-btn edit" onclick="addArticle(${enjIdx})">+ Ajouter un article manuellement</button>
+      </div>
+      <div class="p-3 space-y-2">
+        ${(enj.articles || []).length === 0
+          ? '<div class="text-[11px] text-slate-400 italic text-center py-2">Aucun article. Clique "Proposer des références" (IA) ou "Ajouter manuellement".</div>'
+          : enj.articles.map((a, aIdx) => `
+            <div class="article-row ${a.validated ? 'validated' : ''}">
+              <div class="flex items-start justify-between gap-2 mb-1">
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <input type="text" class="font-bold text-[11px] text-blue-700 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none flex-1" value="${a.ref.replace(/"/g, '&quot;')}" onblur="updateArticleRef(${enjIdx}, ${aIdx}, this.value)" ${a.validated ? 'readonly' : ''} />
+                    ${a.validated ? '<span class="validated-tag">OK</span>' : `<button class="mini-btn danger text-[9px]" onclick="deleteArticle(${enjIdx}, ${aIdx})">✕</button>`}
+                  </div>
+                  ${a.justification ? `<div class="text-[10px] text-slate-500 italic mb-1">💡 ${a.justification}</div>` : ''}
+                  <textarea ${a.validated ? 'readonly' : ''} placeholder="Colle ici le texte officiel de l'article (anti-hallucination)…" class="w-full text-[11px] p-2 border border-slate-300 rounded mt-1 font-mono bg-white" rows="4" onblur="updateArticleTexte(${enjIdx}, ${aIdx}, this.value)">${a.texte || ''}</textarea>
+                  ${!a.validated && a.texte ? `<button class="mini-btn validate mt-1" onclick="validateArticle(${enjIdx}, ${aIdx})">Valider cet article</button>` : ''}
+                </div>
+              </div>
+            </div>
+          `).join("")
+        }
+      </div>
+    </div>
+  `).join("");
+}
+
+async function proposerReferences() {
+  const btn = document.getElementById("btnProposerRefs");
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;margin-right:4px;"></span>IA…';
+  toast("🤖 L'IA propose des références…", "ai");
+  try {
+    const corpus = state.documents.filter(d => !d.nonTx).map(d => `[${d.filename}]\n${d.text}`).join("\n\n---\n\n");
+    const parsed = await callClaudeJSON(
+      PROMPTS.proposerReferencesArticles_v1,
+      state.enjeux.map(e => ({ num: e.num, titre: e.titre, positionA: e.positionA, positionB: e.positionB })),
+      corpus
+    );
+    // Injecter les propositions
+    parsed.propositions.forEach(p => {
+      const enj = state.enjeux.find(e => e.num === p.enjeuNum);
+      if (!enj) return;
+      if (!enj.articles) enj.articles = [];
+      p.references.forEach(r => {
+        // Éviter doublons
+        if (!enj.articles.find(a => a.ref === r.ref)) {
+          enj.articles.push({
+            id: "art_" + Date.now() + "_" + Math.random().toString(36).slice(2,7),
+            enjeuNum: p.enjeuNum,
+            ref: r.ref,
+            justification: r.justification,
+            texte: "",
+            validated: false,
+            cnes: []
+          });
+        }
+      });
+    });
+    saveState();
+    renderArticlesModal();
+    toast("Références proposées — colle les textes officiels", "success");
+  } catch(e) {
+    toast("Erreur IA : " + e.message.slice(0, 80), "error");
+    console.error(e);
+  }
+  btn.disabled = false;
+  btn.innerHTML = original;
+}
+
+window.addArticle = (enjIdx) => {
+  const enj = state.enjeux[enjIdx];
+  if (!enj.articles) enj.articles = [];
+  enj.articles.push({
+    id: "art_" + Date.now() + "_" + Math.random().toString(36).slice(2,7),
+    enjeuNum: enj.num,
+    ref: "Nouvel article — éditer",
+    texte: "",
+    validated: false,
+    cnes: []
+  });
+  saveState();
+  renderArticlesModal();
+};
+
+window.deleteArticle = (enjIdx, aIdx) => {
+  if (!confirm("Supprimer cet article ?")) return;
+  state.enjeux[enjIdx].articles.splice(aIdx, 1);
+  saveState();
+  renderArticlesModal();
+  renderArticles();
+};
+
+window.updateArticleRef = (enjIdx, aIdx, val) => {
+  state.enjeux[enjIdx].articles[aIdx].ref = val;
+  saveState();
+};
+
+window.updateArticleTexte = (enjIdx, aIdx, val) => {
+  state.enjeux[enjIdx].articles[aIdx].texte = val;
+  saveState();
+  renderArticlesModal();
+};
+
+window.validateArticle = (enjIdx, aIdx) => {
+  const a = state.enjeux[enjIdx].articles[aIdx];
+  if (!a.texte || a.texte.length < 20) {
+    toast("Colle d'abord le texte de l'article (min 20 caractères)", "error");
+    return;
+  }
+  a.validated = true;
+  saveState();
+  renderArticlesModal();
+  renderArticles();
+  renderSteps();
+  toast(`Article ${a.ref} validé`, "success");
+};
+
+function validateAllArticles() {
+  let n = 0;
+  state.enjeux.forEach(e => (e.articles || []).forEach(a => {
+    if (!a.validated && a.texte && a.texte.length >= 20) { a.validated = true; n++; }
+  }));
+  saveState();
+  renderArticlesModal();
+  renderArticles();
+  renderSteps();
+  updateArticlesStatus();
+  toast(`${n} articles validés`, "success");
+}
+
+function updateArticlesStatus() {
+  const status = document.getElementById("articles-status");
+  const arts = getAllArticles();
+  if (arts.length === 0) {
+    status.className = "text-[9px] px-2 py-0.5 rounded bg-slate-100 text-slate-500";
+    status.textContent = "en attente";
+  } else if (arts.every(a => a.validated)) {
+    status.className = "text-[9px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700";
+    status.textContent = `${arts.length} articles validés ✓`;
+  } else {
+    status.className = "text-[9px] px-2 py-0.5 rounded bg-amber-100 text-amber-700";
+    status.textContent = `${arts.filter(a=>a.validated).length}/${arts.length} validés`;
+  }
+}
+
+function renderArticles() {
+  const list = document.getElementById("articles-list");
+  const arts = getAllArticles();
+  if (arts.length === 0) {
+    list.innerHTML = `
+      <div class="text-[11px] text-slate-500 text-center py-4">
+        Aucun article. <button class="mini-btn edit ml-2" onclick="openArticlesModal()">Gérer les articles</button>
+      </div>`;
+    updateArticlesStatus();
+    return;
+  }
+  // Regrouper par enjeu
+  const byEnjeu = {};
+  arts.forEach(a => {
+    if (!byEnjeu[a.enjeuNum]) byEnjeu[a.enjeuNum] = { titre: a.enjeuTitre, arts: [] };
+    byEnjeu[a.enjeuNum].arts.push(a);
+  });
+  list.innerHTML = Object.entries(byEnjeu).map(([num, grp]) => `
+    <div class="mb-2">
+      <div class="text-[10px] font-bold text-slate-600 mb-1">Enjeu ${num} — ${grp.titre}</div>
+      ${grp.arts.map(a => `
+        <div class="article-row ${a.validated ? 'validated' : ''}">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex-1">
+              <div class="font-bold text-[11px] text-blue-700">${a.ref}</div>
+              <div class="text-[11px] mt-0.5 text-slate-700">${a.texte ? a.texte.slice(0, 200) + (a.texte.length > 200 ? '…' : '') : '<em class="text-slate-400">Texte non collé</em>'}</div>
+            </div>
+            ${a.validated ? '<span class="validated-tag">OK</span>' : ''}
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `).join("") + `
+    <div class="text-center pt-2">
+      <button class="mini-btn edit" onclick="openArticlesModal()">Gérer les articles</button>
+    </div>
+  `;
+  updateArticlesStatus();
+}
+
+/* --- ÉTAPE 4 : CNE (VRAIE IA — décomposition par article) --- */
+async function runCNE() {
+  const status = document.getElementById("cne-status");
+  status.className = "text-[9px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 pulse";
+  status.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;margin-right:4px;"></span>Décomposition IA…';
+  toast("🧩 L'IA décompose les articles en CNE…", "ai");
+
+  let totalCNE = 0;
+  let errors = 0;
+  // Pour chaque article validé de chaque enjeu, décomposer en CNE
+  for (const enj of state.enjeux) {
+    for (const art of (enj.articles || [])) {
+      if (!art.validated || !art.texte) continue;
+      if (art.cnes && art.cnes.length > 0) continue; // Déjà décomposé
+      try {
+        const parsed = await callClaudeJSON(
+          PROMPTS.decomposerArticleEnCNE_v1,
+          art.ref,
+          art.texte,
+          enj.num,
+          enj.titre
+        );
+        // Format code : "CNE {enjeu}.{article}.{num}" par exemple "CNE 1.1.2" (enjeu 1, article 1, CNE 2)
+        const articleIdxInEnjeu = enj.articles.indexOf(art) + 1;
+        art.cnes = parsed.cnes.map(c => ({
+          code: `CNE ${enj.num}.${articleIdxInEnjeu}.${c.num}`,
+          num: c.num,
+          libelle: c.libelle,
+          validated: false,
+          syllogismeA: null,
+          syllogismeB: null,
+          unitesA: [],
+          unitesB: []
+        }));
+        totalCNE += art.cnes.length;
+      } catch(e) {
+        errors++;
+        console.error("Erreur décomposition CNE pour " + art.ref, e);
+      }
+    }
+  }
+  saveState();
+  renderCNE();
+  renderCNEFiltersReadonly();
+
+  if (errors > 0) {
+    status.className = "text-[9px] px-2 py-0.5 rounded bg-amber-100 text-amber-700";
+    status.textContent = `${totalCNE} CNE (${errors} erreur(s))`;
+    toast(`${totalCNE} CNE extraites — ${errors} article(s) en erreur`, "error");
+  } else {
+    status.className = "text-[9px] px-2 py-0.5 rounded bg-blue-100 text-blue-700";
+    status.textContent = `${totalCNE} CNE — à valider`;
+    toast(`${totalCNE} CNE extraites — à valider`, "success");
+  }
+  renderSteps();
+}
+
+function renderCNE() {
+  const list = document.getElementById("cne-list");
+  const allCnes = getAllCNEs();
+  if (allCnes.length === 0) {
+    list.innerHTML = '<div class="text-[11px] text-slate-500 italic text-center py-3">Aucune CNE. Valide les articles puis lance la décomposition.</div>';
+    return;
+  }
+  // Regrouper par enjeu → article
+  const byEnjeu = {};
+  state.enjeux.forEach(enj => {
+    byEnjeu[enj.num] = { titre: enj.titre, articles: [] };
+    (enj.articles || []).forEach(art => {
+      if (art.cnes && art.cnes.length > 0) {
+        byEnjeu[enj.num].articles.push({ ref: art.ref, cnes: art.cnes, articleId: art.id });
+      }
+    });
+  });
+
+  list.innerHTML = Object.entries(byEnjeu).map(([num, grp]) => grp.articles.length === 0 ? '' : `
+    <div class="mb-3">
+      <div class="text-[10px] font-bold text-slate-600 mb-1">Enjeu ${num} — ${grp.titre}</div>
+      ${grp.articles.map(a => `
+        <div class="ml-2 mb-2">
+          <div class="text-[10px] font-semibold text-blue-700 mb-1">${a.ref}</div>
+          ${a.cnes.map(c => `
+            <div class="cne-row ${c.validated ? 'validated' : ''}">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1">
+                  <span class="font-bold text-[10px] text-purple-700">${c.code}</span>
+                  <span class="text-[11px] ml-1">${c.libelle}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  ${c.validated
+                    ? '<span class="validated-tag">OK</span>'
+                    : `<button class="mini-btn edit text-[9px]" onclick="editCNE('${a.articleId}', ${c.num})">✏️</button>
+                       <button class="mini-btn validate text-[9px]" onclick="validateCNE('${a.articleId}', ${c.num})">✓</button>`
+                  }
+                </div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `).join("")}
+    </div>
+  `).join("") + `
+    ${allCnes.some(c => !c.validated) ? `
+      <div class="text-center pt-2">
+        <button class="mini-btn validate" onclick="validateAllCNE()">Tout valider (${allCnes.filter(c=>!c.validated).length} restants)</button>
+      </div>
+    ` : ''}
+  `;
+}
+
+window.editCNE = (articleId, num) => {
+  for (const enj of state.enjeux) {
+    for (const art of (enj.articles || [])) {
+      if (art.id === articleId) {
+        const cne = art.cnes.find(c => c.num === num);
+        if (cne) {
+          const val = prompt(`Éditer ${cne.code} :`, cne.libelle);
+          if (val !== null) { cne.libelle = val; saveState(); renderCNE(); }
+        }
+        return;
+      }
+    }
+  }
+};
+
+window.validateCNE = (articleId, num) => {
+  for (const enj of state.enjeux) {
+    for (const art of (enj.articles || [])) {
+      if (art.id === articleId) {
+        const cne = art.cnes.find(c => c.num === num);
+        if (cne) {
+          cne.validated = true;
+          saveState();
+          renderCNE();
+          renderSteps();
+          updateCNEStatus();
+          renderCNEFiltersReadonly();
+        }
+        return;
+      }
+    }
+  }
+};
+
+window.validateAllCNE = () => {
+  getAllCNEs().forEach(c => {
+    // On modifie via la référence originale
+    for (const enj of state.enjeux) {
+      for (const art of (enj.articles || [])) {
+        const ref = (art.cnes || []).find(x => x.code === c.code);
+        if (ref) ref.validated = true;
+      }
+    }
+  });
+  saveState();
+  renderCNE();
+  renderSteps();
+  renderCNEFiltersReadonly();
+  updateCNEStatus();
+  toast("Toutes les CNE validées", "success");
+};
+
+function updateCNEStatus() {
+  const status = document.getElementById("cne-status");
+  const all = getAllCNEs();
+  if (all.length === 0) return;
+  if (all.every(c => c.validated)) {
+    status.className = "text-[9px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700";
+    status.textContent = `${all.length} CNE validées ✓`;
+  } else {
+    status.className = "text-[9px] px-2 py-0.5 rounded bg-amber-100 text-amber-700";
+    status.textContent = `${all.filter(c=>c.validated).length}/${all.length} validées`;
+  }
+}
+
+function renderCNEFiltersReadonly() {
+  const el = document.getElementById("cne-filters-readonly");
+  const all = getAllCNEs();
+  if (all.length === 0) {
+    el.innerHTML = `<div class="text-[10px] text-slate-500 italic">Les CNE apparaîtront ici après validation de l'étape 4.</div>`;
+    return;
+  }
+  el.innerHTML = all.map(c => `
+    <div class="text-[10px] py-1 border-b border-slate-100 last:border-0 ${c.validated ? '' : 'opacity-50'}">
+      <span class="font-bold text-purple-700">${c.code}</span> · ${c.libelle}
+      <span class="text-[9px] text-slate-400 ml-1">(${c.articleRef})</span>
+    </div>
+  `).join("");
+}
+
+/* --- ÉTAPE 5 : SYLLOGISMES (VRAIE IA — un couple par CNE) --- */
+async function runSyllogismes() {
+  const status = document.getElementById("syllo-status");
+  status.className = "text-[9px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 pulse";
+  status.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;margin-right:4px;"></span>IA…';
+  toast("⚖️ L'IA formule les syllogismes opposés…", "ai");
+
+  const allCnes = getAllCNEs();
+  let done = 0;
+  let errors = 0;
+  for (const enj of state.enjeux) {
+    for (const art of (enj.articles || [])) {
+      for (const cne of (art.cnes || [])) {
+        if (!cne.validated) continue;
+        if (cne.syllogismeA && cne.syllogismeB) { done++; continue; }
+        try {
+          const parsed = await callClaudeJSON(
+            PROMPTS.genererSyllogismes_v1,
+            { code: cne.code, libelle: cne.libelle },
+            { titre: enj.titre, positionA: enj.positionA, positionB: enj.positionB }
+          );
+          cne.syllogismeA = parsed.syllogismeA;
+          cne.syllogismeB = parsed.syllogismeB;
+          done++;
+        } catch(e) {
+          errors++;
+          console.error("Erreur syllogisme " + cne.code, e);
+        }
+      }
+    }
+  }
+  saveState();
+  renderSyllogismes();
+  if (errors > 0) {
+    status.className = "text-[9px] px-2 py-0.5 rounded bg-amber-100 text-amber-700";
+    status.textContent = `${done} syllogismes (${errors} erreur(s))`;
+    toast(`${done} syllogismes — ${errors} erreur(s)`, "error");
+  } else {
+    status.className = "text-[9px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700";
+    status.textContent = `${done} syllogismes ✓`;
+    toast(`${done} syllogismes générés`, "success");
+  }
+  document.getElementById("openRapportBtn").disabled = false;
+  document.getElementById("openRapportBtn").classList.add("validate");
+  renderSteps();
+}
+
+function renderSyllogismes() {
+  const list = document.getElementById("syllo-list");
+  const allCnes = getAllCNEs().filter(c => c.syllogismeA && c.syllogismeB);
+  if (allCnes.length === 0) {
+    list.innerHTML = '<div class="text-[11px] text-slate-500 italic text-center py-3">Aucun syllogisme. Valide les CNE et lance l\'étape 5.</div>';
+    return;
+  }
+  // Regrouper par enjeu
+  const byEnjeu = {};
+  allCnes.forEach(c => {
+    if (!byEnjeu[c.enjeuNum]) byEnjeu[c.enjeuNum] = { titre: c.enjeuTitre, items: [] };
+    byEnjeu[c.enjeuNum].items.push(c);
+  });
+  list.innerHTML = Object.entries(byEnjeu).map(([num, grp]) => `
+    <div class="mb-3">
+      <div class="text-[10px] font-bold text-slate-600 mb-1">Enjeu ${num} — ${grp.titre}</div>
+      ${grp.items.map(s => `
+        <div class="bg-slate-50 border border-slate-200 rounded p-2 mb-1">
+          <div class="text-[10px] font-bold text-purple-700 mb-1">${s.code} · ${s.libelle}</div>
+          <div class="grid grid-cols-2 gap-2 text-[11px]">
+            <div class="p-1.5 bg-blue-50 border border-blue-200 rounded">
+              <div class="text-[9px] font-bold text-blue-700 mb-0.5">Favorable A</div>
+              ${s.syllogismeA}
+            </div>
+            <div class="p-1.5 bg-rose-50 border border-rose-200 rounded">
+              <div class="text-[9px] font-bold text-rose-700 mb-0.5">Favorable B</div>
+              ${s.syllogismeB}
+            </div>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `).join("");
+}
+
+/* --- ÉTAPE 6 : RAPPORT CNE (VRAIE IA — unités textuelles par CNE) --- */
+async function runRapportCNE() {
+  toast("📋 L'IA associe les unités textuelles aux CNE…", "ai");
+
+  const corpus = state.documents.filter(d => !d.nonTx).map(d => `[${d.filename}]\n${d.text}`).join("\n\n---\n\n");
+  let done = 0;
+  let errors = 0;
+  for (const enj of state.enjeux) {
+    for (const art of (enj.articles || [])) {
+      for (const cne of (art.cnes || [])) {
+        if (!cne.validated) continue;
+        if ((cne.unitesA && cne.unitesA.length > 0) || (cne.unitesB && cne.unitesB.length > 0)) { done++; continue; }
+        try {
+          const parsed = await callClaudeJSON(
+            PROMPTS.associerUnitesACNE_v1,
+            { code: cne.code, libelle: cne.libelle },
+            corpus,
+            { titre: enj.titre }
+          );
+          cne.unitesA = (parsed.unitesA || []).map(u => ({ ...u, validated: null }));
+          cne.unitesB = (parsed.unitesB || []).map(u => ({ ...u, validated: null }));
+          done++;
+        } catch(e) {
+          errors++;
+          console.error("Erreur rapport CNE " + cne.code, e);
+        }
+      }
+    }
+  }
+  saveState();
+  renderSteps();
+  openRapportCNEModal();
+  if (errors > 0) toast(`Rapport CNE généré (${errors} erreur(s))`, "error");
+  else toast("Rapport CNE généré — à valider", "success");
+}
+
+function openRapportCNEModal() {
+  const content = document.getElementById("rapportCNEContent");
+  const cnes = getAllCNEs().filter(c => c.validated);
+  if (cnes.length === 0) {
+    content.innerHTML = '<div class="text-[11px] text-slate-500 italic text-center py-6">Aucune CNE validée.</div>';
+    openModal("modalRapportCNE");
+    return;
+  }
+  const byEnjeu = {};
+  cnes.forEach(c => {
+    if (!byEnjeu[c.enjeuNum]) byEnjeu[c.enjeuNum] = { titre: c.enjeuTitre, items: [] };
+    byEnjeu[c.enjeuNum].items.push(c);
+  });
+  content.innerHTML = Object.entries(byEnjeu).map(([num, grp]) => `
+    <div class="mb-5">
+      <div class="font-bold text-[12px] text-slate-800 mb-2 pb-1 border-b border-slate-300">Enjeu ${num} — ${grp.titre}</div>
+      ${grp.items.map(c => `
+        <div class="mb-4 pl-2 border-l-2 border-purple-200">
+          <div class="font-bold text-[11px] text-purple-700 mb-2">${c.code} · ${c.libelle}</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <div class="text-[10px] font-bold text-blue-700 uppercase mb-1">Partie A</div>
+              ${(c.unitesA || []).length === 0
+                ? '<div class="text-[10px] text-slate-400 italic">Aucune unité.</div>'
+                : c.unitesA.map((u, idx) => renderRapportUnite(u, c.code, 'A', idx)).join("")}
+            </div>
+            <div>
+              <div class="text-[10px] font-bold text-rose-700 uppercase mb-1">Partie B</div>
+              ${(c.unitesB || []).length === 0
+                ? '<div class="text-[10px] text-slate-400 italic">Aucune unité.</div>'
+                : c.unitesB.map((u, idx) => renderRapportUnite(u, c.code, 'B', idx)).join("")}
+            </div>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `).join("");
+  openModal("modalRapportCNE");
+}
+
+function renderRapportUnite(u, cneCode, party, idx) {
+  const sign = u.soutien === '+' ? '<span class="text-emerald-600 font-bold">+</span>' : (u.soutien === '-' ? '<span class="text-rose-600 font-bold">−</span>' : '');
+  return `
+    <div class="unit-text" data-cnecode="${cneCode}" data-party="${party}" data-idx="${idx}">
+      <div class="mb-1">${sign} "${u.texte}"</div>
+      <div class="text-[10px] italic text-slate-500 mb-1">${u.analyse || ''}</div>
+      <div class="text-[9px] text-slate-400 mb-1">Source : ${u.source || 'non précisé'}</div>
+      <div class="flex gap-1">
+        ${u.validated === true
+          ? `<span class="validated-tag">CNE ✓</span>`
+          : u.validated === false
+            ? `<span class="text-[9px] text-slate-400">rejeté</span>`
+            : `<button class="mini-btn validate" onclick="validateRapportUnite('${cneCode}','${party}',${idx},true)">Valider</button>
+               <button class="mini-btn danger" onclick="validateRapportUnite('${cneCode}','${party}',${idx},false)">Rejeter</button>`
+        }
+      </div>
+    </div>
+  `;
+}
+
+window.validateRapportUnite = (cneCode, party, idx, val) => {
+  const cnes = getAllCNEs();
+  const c = cnes.find(x => x.code === cneCode);
+  if (!c) return;
+  // Modifier via la référence dans state
+  for (const enj of state.enjeux) {
+    for (const art of (enj.articles || [])) {
+      const ref = (art.cnes || []).find(x => x.code === cneCode);
+      if (ref) {
+        const arr = party === 'A' ? ref.unitesA : ref.unitesB;
+        if (arr[idx]) arr[idx].validated = val;
+      }
+    }
+  }
+  saveState();
+  openRapportCNEModal();
+};
+
+document.getElementById("btnValidateAllRapport").onclick = () => {
+  // Valider toutes les unités non encore tranchées comme validées
+  getAllCNEs().forEach(c => {
+    for (const enj of state.enjeux) {
+      for (const art of (enj.articles || [])) {
+        const ref = (art.cnes || []).find(x => x.code === c.code);
+        if (ref) {
+          (ref.unitesA || []).forEach(u => { if (u.validated === null) u.validated = true; });
+          (ref.unitesB || []).forEach(u => { if (u.validated === null) u.validated = true; });
+        }
+      }
+    }
+  });
+  state.rapportCNE.validated = true;
+  saveState();
+  renderSteps();
+  closeModal("modalRapportCNE");
+  document.getElementById("tcj-status").textContent = "prêt à remplir";
+  toast("Rapport CNE validé", "success");
+};
+
+document.getElementById("openRapportBtn").onclick = () => {
+  if (getAllCNEs().some(c => (c.unitesA && c.unitesA.length > 0) || (c.unitesB && c.unitesB.length > 0))) {
+    openRapportCNEModal();
+  } else {
+    runRapportCNE();
+  }
+};
+
+/* --- ÉTAPE 7 : TCJ (Tableau des Comptes Juridiques) --- */
+async function runTCJ() {
+  const status = document.getElementById("tcj-status");
+  status.className = "text-[9px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 pulse";
+  status.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;margin-right:4px;"></span>Remplissage TCJ…';
+  await sleep(800);
+  state.tcjFilled = true;
+  renderTCJ();
+  status.className = "text-[9px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700";
+  status.textContent = "TCJ rempli ✓";
+  saveState();
+  renderSteps();
+  toast("TCJ rempli", "success");
+}
+
+function renderTCJ() {
+  const el = document.getElementById("tcj-content");
+  if (!state.tcjFilled) {
+    el.innerHTML = '<div class="text-[11px] text-slate-500 italic text-center py-6">Le TCJ sera rempli à la fin de l\'analyse.</div>';
+    return;
+  }
+  const cnes = getAllCNEs().filter(c => c.validated);
+  if (cnes.length === 0) {
+    el.innerHTML = '<div class="text-[11px] text-slate-500 italic text-center py-6">Aucune CNE validée.</div>';
+    return;
+  }
+  // Regrouper par enjeu
+  const byEnjeu = {};
+  cnes.forEach(c => {
+    if (!byEnjeu[c.enjeuNum]) byEnjeu[c.enjeuNum] = { titre: c.enjeuTitre, items: [] };
+    byEnjeu[c.enjeuNum].items.push(c);
+  });
+  el.innerHTML = Object.entries(byEnjeu).map(([num, grp]) => `
+    <div class="mb-4">
+      <div class="font-bold text-[12px] text-slate-800 mb-2 pb-1 border-b border-slate-300">Enjeu ${num} — ${grp.titre}</div>
+      <div class="space-y-2">
+        ${grp.items.map(c => {
+          const validUnitesA = (c.unitesA || []).filter(u => u.validated === true);
+          const validUnitesB = (c.unitesB || []).filter(u => u.validated === true);
+          return `
+            <div class="border border-slate-200 rounded">
+              <div class="bg-slate-100 px-2 py-1 text-[10px] font-bold text-purple-700 border-b border-slate-200">
+                ${c.code} · ${c.libelle}
+              </div>
+              <div class="grid grid-cols-2 divide-x divide-slate-200">
+                <div class="p-2">
+                  <div class="text-[9px] font-bold text-blue-700 uppercase mb-1">A — ${(c.syllogismeA || '').slice(0, 80)}…</div>
+                  ${validUnitesA.length === 0
+                    ? '<div class="text-[10px] text-slate-400 italic">—</div>'
+                    : validUnitesA.map(u => `<div class="text-[10px] mb-1 p-1 bg-blue-50 rounded">"${u.texte}" <span class="text-[9px] text-slate-500">(${u.source || ''})</span></div>`).join("")}
+                </div>
+                <div class="p-2">
+                  <div class="text-[9px] font-bold text-rose-700 uppercase mb-1">B — ${(c.syllogismeB || '').slice(0, 80)}…</div>
+                  ${validUnitesB.length === 0
+                    ? '<div class="text-[10px] text-slate-400 italic">—</div>'
+                    : validUnitesB.map(u => `<div class="text-[10px] mb-1 p-1 bg-rose-50 rounded">"${u.texte}" <span class="text-[9px] text-slate-500">(${u.source || ''})</span></div>`).join("")}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `).join("");
+}
+
+/* ============================================================
+   COLONNE 3 : RAPPORTS ET REGISTRES
+   ============================================================ */
+
+document.getElementById("btnLaunchReport").onclick = async () => {
+  const name = document.getElementById("cfgName").value.trim() || `Rapport ${new Date().toLocaleDateString("fr-FR")}`;
+  const filter = document.getElementById("cfgFilter").value;
+  const scope = document.getElementById("cfgScope").value;
+  const notes = document.getElementById("cfgNotes").value;
+
+  const status = document.getElementById("reportStatus");
+  status.textContent = "🤖 Analyse IA en cours…";
+  status.className = "text-[10px] text-center text-purple-600 pulse";
+
+  // Déterminer les documents selon le scope
+  let docs = state.documents.filter(d => !d.nonTx);
+  if (scope === "Pièces de la partie A") docs = docs.filter(d => d.party === "A");
+  else if (scope === "Pièces de la partie B") docs = docs.filter(d => d.party === "B");
+  const textAnalyse = docs.map(d => `[${d.filename}]\n${d.text}`).join("\n\n---\n\n");
+
+  try {
+    let entries = [];
+    if (filter === "LORD") {
+      const parsed = await callClaudeJSON(PROMPTS.analyserLORD_v1, scope, textAnalyse);
+      entries = (parsed.anomalies || []).map((a, i) => ({
+        id: `e_${Date.now()}_${i}`,
+        code: a.filtre,
+        text: a.citation,
+        analysis: a.explication,
+        filter: "LORD",
+        filtreCode: a.filtre,
+        num: i + 1,
+        tagLetter: String.fromCharCode(65 + (i % 26)),
+        party: null,
+        validated: null,
+        source: scope
+      }));
+    } else if (filter === "OBJ") {
+      const parsed = await callClaudeJSON(PROMPTS.analyserObjSubj_v1, textAnalyse);
+      entries = (parsed.unites || []).map((u, i) => ({
+        id: `e_${Date.now()}_${i}`,
+        code: u.classification,
+        text: u.texte,
+        analysis: u.justification,
+        filter: "OBJ",
+        filtreCode: u.classification,
+        num: i + 1,
+        tagLetter: String.fromCharCode(65 + (i % 26)),
+        party: null,
+        validated: null,
+        source: scope
+      }));
+    } else if (filter === "CNE") {
+      // Pour CNE : lister les unités textuelles déjà associées aux CNE validées
+      const cnes = getAllCNEs().filter(c => c.validated);
+      cnes.forEach((c, ci) => {
+        (c.unitesA || []).forEach((u, ui) => entries.push({
+          id: `e_${Date.now()}_A_${ci}_${ui}`, code: c.code, text: u.texte, analysis: u.analyse || '',
+          filter: "CNE", filtreCode: c.code, num: entries.length + 1, tagLetter: String.fromCharCode(65 + (entries.length % 26)),
+          party: "A", validated: null, source: u.source || ''
+        }));
+        (c.unitesB || []).forEach((u, ui) => entries.push({
+          id: `e_${Date.now()}_B_${ci}_${ui}`, code: c.code, text: u.texte, analysis: u.analyse || '',
+          filter: "CNE", filtreCode: c.code, num: entries.length + 1, tagLetter: String.fromCharCode(65 + (entries.length % 26)),
+          party: "B", validated: null, source: u.source || ''
+        }));
+      });
+    } else if (filter === "SPEC") {
+      status.textContent = "⚠ Filtres spécifiques : définir d'abord un filtre personnalisé";
+      status.className = "text-[10px] text-center text-amber-600";
+      return;
+    }
+
+    const report = {
+      id: "rep_" + Date.now(),
+      name,
+      filter,
+      scope,
+      notes,
+      date: new Date().toISOString().slice(0, 10),
+      version: "V1",
+      entries
+    };
+    state.reports.unshift(report);
+    saveState();
+    renderReportsList();
+    status.textContent = `✓ ${entries.length} entrée(s)`;
+    status.className = "text-[10px] text-center text-emerald-600";
+    setTimeout(() => status.textContent = "", 3000);
+    openReportModal(report.id);
+  } catch(e) {
+    status.textContent = "✗ Erreur IA";
+    status.className = "text-[10px] text-center text-rose-600";
+    toast("Erreur IA : " + e.message.slice(0, 80), "error");
+    console.error(e);
+  }
+};
+
+function renderReportsList() {
+  document.getElementById("reportCount").textContent = state.reports.length;
+  const list = document.getElementById("reportsList");
+  if (state.reports.length === 0) {
+    list.innerHTML = '<div class="text-[10px] text-slate-400 italic text-center py-4">Aucun rapport généré.</div>';
+    return;
+  }
+  list.innerHTML = state.reports.map(r => `
+    <div class="border border-slate-200 rounded p-2 text-[10px] hover:bg-slate-50 cursor-pointer group" onclick="openReportModal('${r.id}')">
+      <div class="flex items-start justify-between gap-1">
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold text-slate-700 truncate">${r.name}</div>
+          <div class="text-[9px] text-slate-500">${r.date} · ${r.filter} · ${r.version}</div>
+          <div class="text-[9px] text-slate-400">${r.entries.length} entrées</div>
+        </div>
+        <button class="text-[9px] text-slate-400 hover:text-rose-600 opacity-0 group-hover:opacity-100" onclick="event.stopPropagation(); deleteReport('${r.id}')">✕</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+window.deleteReport = (id) => {
+  state.reports = state.reports.filter(r => r.id !== id);
+  saveState();
+  renderReportsList();
+};
+
+window.openReportModal = (id) => {
+  const r = state.reports.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById("reportTitle").textContent = r.name;
+  document.getElementById("reportMeta").textContent = `${r.date} · ${r.filter} · ${r.version} · ${r.entries.length} entrées`;
+  document.getElementById("reportParams").innerHTML = `<span class="font-semibold">Paramètres :</span> ${r.scope} · filtre ${r.filter}${r.notes ? ` · "${r.notes}"` : ""}`;
+  const body = document.getElementById("reportBody");
+  body.innerHTML = r.entries.map(e => renderReportEntry(e, r.id)).join("");
+  openModal("modalReport");
+};
+
+function renderReportEntry(e, reportId) {
+  const tagClass = `tag-${e.filter.toLowerCase()}`;
+  return `
+    <div class="report-entry ${e.validated === false ? 'dimmed' : ''}" id="entry-${e.id}">
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex-1">
+          <span class="unit-code">(${e.code})</span>
+          <span>${e.text}</span>
+          <span class="italic text-slate-500"> (${e.analysis})</span>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          ${e.validated === true
+            ? `<span class="tag ${tagClass}">${e.filter} ${e.num} (${e.code}/${e.tagLetter})</span>`
+            : e.validated === false
+              ? `<span class="text-[9px] text-slate-400">non-validé</span>`
+              : `<button class="mini-btn validate" onclick="validateEntry('${reportId}', '${e.id}', true)">Valider</button>
+                 <button class="mini-btn danger" onclick="validateEntry('${reportId}', '${e.id}', false)">Non-validé</button>`
+          }
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+window.validateEntry = (reportId, entryId, val) => {
+  const r = state.reports.find(x => x.id === reportId);
+  if (!r) return;
+  const e = r.entries.find(x => x.id === entryId);
+  if (!e) return;
+  e.validated = val;
+  saveState();
+  openReportModal(reportId);
+};
+
+document.getElementById("btnSaveReport").onclick = () => {
+  const title = document.getElementById("reportTitle").textContent;
+  const r = state.reports.find(x => x.name === title);
+  if (!r) return;
+  const num = parseInt(r.version.slice(1)) + 1;
+  r.version = "V" + num;
+  saveState();
+  renderReportsList();
+  toast(`Nouvelle version ${r.version}`, "success");
+  openReportModal(r.id);
+};
+
+document.getElementById("btnPrintReport").onclick = () => window.print();
+
+/* Analyses en lot (onglet Filtres) — VRAIE IA LORD et Obj/Subj */
+document.querySelectorAll(".analyse-btn").forEach(btn => {
+  btn.onclick = async () => {
+    const type = btn.dataset.type;
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "IA en cours…";
+    btn.classList.add("pulse");
+
+    // Choisir sur quoi analyser : si dossier a 2 parties, proposer le choix
+    let cible = "Tout le dossier";
+    let textAnalyse = state.documents.filter(d => !d.nonTx).map(d => `[${d.filename}]\n${d.text}`).join("\n\n---\n\n");
+    if (state.parties.validated && (type === "LORD" || type === "OBJ")) {
+      const choix = prompt(`Analyser ${type} sur quelles pièces ?\n\n  A = pièces de la partie A\n  B = pièces de la partie B\n  T = toutes les pièces\n\nChoix :`, "T");
+      if (choix === null) { btn.disabled = false; btn.textContent = originalText; btn.classList.remove("pulse"); return; }
+      if (choix.toUpperCase() === "A") {
+        cible = "Pièces de la partie A";
+        textAnalyse = state.documents.filter(d => !d.nonTx && d.party === "A").map(d => `[${d.filename}]\n${d.text}`).join("\n\n---\n\n");
+      } else if (choix.toUpperCase() === "B") {
+        cible = "Pièces de la partie B";
+        textAnalyse = state.documents.filter(d => !d.nonTx && d.party === "B").map(d => `[${d.filename}]\n${d.text}`).join("\n\n---\n\n");
+      }
+    }
+
+    try {
+      let entries = [];
+      if (type === "LORD") {
+        const parsed = await callClaudeJSON(PROMPTS.analyserLORD_v1, cible, textAnalyse);
+        entries = (parsed.anomalies || []).map((a, i) => ({
+          id: `e_${Date.now()}_${i}`,
+          code: a.filtre,
+          text: a.citation,
+          analysis: a.explication,
+          filter: "LORD",
+          filtreCode: a.filtre,
+          num: i + 1,
+          tagLetter: String.fromCharCode(65 + (i % 26)),
+          party: null,
+          validated: null,
+          source: cible,
+          recap: parsed.recap,
+          risqueGlobal: parsed.risqueGlobal
+        }));
+      } else if (type === "OBJ") {
+        const parsed = await callClaudeJSON(PROMPTS.analyserObjSubj_v1, textAnalyse);
+        entries = (parsed.unites || []).map((u, i) => ({
+          id: `e_${Date.now()}_${i}`,
+          code: u.classification,
+          text: u.texte,
+          analysis: u.justification,
+          filter: "OBJ",
+          filtreCode: u.classification,
+          num: i + 1,
+          tagLetter: String.fromCharCode(65 + (i % 26)),
+          party: null,
+          validated: null,
+          source: cible,
+          stats: parsed.stats
+        }));
+      } else if (type === "SPEC") {
+        // Filtres spécifiques : prompt simple
+        toast("Les filtres spécifiques nécessitent une définition personnalisée", "error");
+        btn.disabled = false;
+        btn.textContent = originalText;
+        btn.classList.remove("pulse");
+        return;
+      }
+
+      const report = {
+        id: "rep_" + Date.now(),
+        name: `Rapport ${type} · ${cible} · ${new Date().toLocaleTimeString("fr-FR", {hour:"2-digit",minute:"2-digit"})}`,
+        filter: type,
+        scope: cible,
+        notes: "",
+        date: new Date().toISOString().slice(0, 10),
+        version: "V1",
+        entries
+      };
+      state.reports.unshift(report);
+      saveState();
+      renderReportsList();
+      btn.textContent = "Rapport généré ✓";
+      btn.classList.remove("pulse");
+      toast(`Rapport ${type} : ${entries.length} entrée(s)`, "success");
+      setTimeout(() => openReportModal(report.id), 300);
+    } catch(e) {
+      btn.textContent = "Erreur";
+      btn.classList.remove("pulse");
+      toast("Erreur IA : " + e.message.slice(0, 80), "error");
+      console.error(e);
+    }
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }, 2000);
+  };
+});
+
+/* Registres */
+document.querySelectorAll(".registre-btn").forEach(btn => {
+  btn.onclick = () => openRegistre(btn.dataset.reg);
+});
+
+function openRegistre(type) {
+  document.getElementById("registreTitle").textContent = type === "ALL" ? "Registre Rx-Dossier" : `Registre ${type}`;
+  // Récupère toutes les entrées validées
+  let allEntries = [];
+  state.reports.forEach(r => {
+    if (type === "ALL" || r.filter === type) {
+      r.entries.filter(e => e.validated === true).forEach(e => allEntries.push({ ...e, reportName: r.name }));
+    }
+  });
+  const aCount = allEntries.filter(e => e.party === "A").length;
+  const bCount = allEntries.filter(e => e.party === "B").length;
+
+  const body = document.getElementById("registreBody");
+  body.innerHTML = `
+    <div class="mb-3 p-3 bg-slate-100 rounded border border-slate-200 grid grid-cols-3 gap-2 text-center">
+      <div><div class="text-[9px] text-slate-500 uppercase font-bold">Partie A</div><div class="text-xl font-bold text-blue-700">${aCount}</div></div>
+      <div><div class="text-[9px] text-slate-500 uppercase font-bold">Partie B</div><div class="text-xl font-bold text-rose-700">${bCount}</div></div>
+      <div><div class="text-[9px] text-slate-500 uppercase font-bold">Total</div><div class="text-xl font-bold text-slate-700">${allEntries.length}</div></div>
+    </div>
+    ${allEntries.length === 0
+      ? '<div class="text-[11px] text-slate-500 italic text-center py-6">Aucune unité validée pour ce registre.</div>'
+      : `
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <div class="text-[10px] font-bold text-blue-700 uppercase mb-1">Partie A (${aCount})</div>
+          ${allEntries.filter(e => e.party === "A").map(e => `
+            <div class="text-[10px] mb-1 p-1.5 bg-blue-50 border border-blue-100 rounded">
+              <span class="unit-code">(${e.code})</span> ${e.text}
+              <div class="text-[9px] text-slate-500 italic mt-0.5">(${e.analysis})</div>
+              <span class="tag tag-${e.filter.toLowerCase()} mt-1 inline-block">${e.filter} ${e.num} (${e.code}/${e.tagLetter})</span>
+            </div>
+          `).join("") || '<div class="text-[10px] text-slate-400 italic">—</div>'}
+        </div>
+        <div>
+          <div class="text-[10px] font-bold text-rose-700 uppercase mb-1">Partie B (${bCount})</div>
+          ${allEntries.filter(e => e.party === "B").map(e => `
+            <div class="text-[10px] mb-1 p-1.5 bg-rose-50 border border-rose-100 rounded">
+              <span class="unit-code">(${e.code})</span> ${e.text}
+              <div class="text-[9px] text-slate-500 italic mt-0.5">(${e.analysis})</div>
+              <span class="tag tag-${e.filter.toLowerCase()} mt-1 inline-block">${e.filter} ${e.num} (${e.code}/${e.tagLetter})</span>
+            </div>
+          `).join("") || '<div class="text-[10px] text-slate-400 italic">—</div>'}
+        </div>
+      </div>
+    `}
+  `;
+  openModal("modalRegistre");
+}
+
+/* ----------- RESET ----------- */
+document.getElementById("resetAll").onclick = () => {
+  if (!confirm("Réinitialiser toute la simulation ? Tout le travail en cours sera perdu.")) return;
+  localStorage.removeItem("neolaw_state_v2");
+  localStorage.removeItem("neolaw_state"); // compat ancienne clé v1
+  location.reload();
+};
+
+/* ============================================================
+   INIT
+   ============================================================ */
+loadState();
+renderArchive();
+renderSteps();
+renderReportsList();
+if (state.parties.A) renderParties();
+if (state.enjeux.length) renderEnjeux();
+if (getAllArticles().length) renderArticles();
+if (getAllCNEs().length) { renderCNE(); renderCNEFiltersReadonly(); }
+if (getAllCNEs().some(c => c.syllogismeA)) renderSyllogismes();
+if (state.tcjFilled) renderTCJ();
+
+// Message de bienvenue
+if (state.documents.length === 0) {
+  setTimeout(() => toast("Bienvenue. Cliquez sur 'Importer des documents' pour commencer.", ""), 500);
+}
+</script>
+</body>
+</html>
